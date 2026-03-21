@@ -1,98 +1,229 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const recentTransactions = [
+  { id: '1', title: 'Groceries', amount: -30.54, date: 'Today' },
+  { id: '2', title: 'Salary', amount: 780, date: 'Yesterday' },
+  { id: '3', title: 'Dorm', amount: -110, date: '2 days ago' },
+];
 
-export default function HomeScreen() {
+const budgetCategories = [
+  { id: '1', title: 'Food', amount: 50, limit: 150 },
+  { id: '2', title: 'Rent', amount: 110, limit: 110 },
+  { id: '3', title: 'Entertainment', amount: 30, limit: 100 },
+];
+
+export default function DashboardScreen() {
+  const totalBalance = 1240.5;
+  const income = 1000;
+  const expenses = 540.5;
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.titleContainer}>
+        <Text style={styles.greeting}>Hello, Dominykas</Text>
+        <Text style={styles.subtitle}>March overview</Text>
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+      <View style={styles.balanceCard}>
+        <Text style={styles.balanceTitle}>Total Balance</Text>
+        <Text style={styles.balanceAmount}>€{totalBalance.toFixed(2)}</Text>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.smallCard, styles.cardSpacing]}>
+          <Text style={styles.balanceTitle}>Income</Text>
+          <Text style={styles.incomeText}>€{income.toFixed(2)}</Text>
+        </View>
+
+        <View style={styles.smallCard}>
+          <Text style={styles.balanceTitle}>Expenses</Text>
+          <Text style={styles.expenseText}>€{expenses.toFixed(2)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <Pressable style={[styles.actionButton, styles.cardSpacing]}>
+          <Text style={styles.actionButtonText}>Add Income</Text>
+        </Pressable>
+
+        <Pressable style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>Add Expense</Text>
+        </Pressable> 
+      </View>
+
+      <Text style={styles.sectionTitle}>Recent Transactions</Text>
+      <View style={styles.sectionCard}>
+        {recentTransactions.map((transaction) => (
+          <View key={transaction.id} style={styles.listItem}>
+            <View>
+              <Text style={styles.listTitle}>{transaction.title}</Text>
+              <Text style={styles.listDate}>{transaction.date}</Text>
+            </View>
+            <Text
+              style={
+                transaction.amount >= 0 ? styles.incomeText : styles.expenseText
+              }>
+                {transaction.amount >= 0 ? '+' : '-'}€
+                {Math.abs(transaction.amount).toFixed(2)}
+              </Text>
+          </View>
+        ))};
+      </View>
+
+      <Text style={styles.sectionTitle}>Budget Status</Text>
+      <View style={styles.sectionCard}>
+        {budgetCategories.map((budget) => (
+          <View key={budget.id} style={styles.budgetItem}>
+            <View style={styles.budgetHeader}>
+              <Text style={styles.listTitle}>{budget.title}</Text>
+              <Text style={styles.listDate}>
+                €{budget.amount} / €{budget.limit}
+              </Text>
+            </View>
+
+            <View style={styles.progressBarBackground}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${(budget.amount / budget.limit) * 100}%` },
+                ]}
+              />
+            </View>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  )
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: '#C0C78C',
   },
-  stepContainer: {
-    gap: 8,
+  titleContainer: {
+    backgroundColor: '#FEFAE0',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  content: {
+    padding: 20,
+    paddingBottom: 32,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 20,
+    color: '#B99470',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#B99470',
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  balanceCard: {
+    backgroundColor: '#FEFAE0',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  balanceTitle: {
+    fontSize: 14,
+    color: '#B99470',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  balanceAmount: {
+    fontSize: 30,
+    fontWeight: '700',
+    color: '#B99470',
+  },
+  row: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  smallCard: {
+    flex: 1,
+    backgroundColor: '#FEFAE0',
+    borderRadius: 16,
+    padding: 16,
+  },
+  cardSpacing: {
+    marginRight: 12,
+  },
+  incomeText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#4CAF50',
+  },
+  expenseText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#F44336',
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#B99470',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    fontWeight: '600',
+    fontSize: 15,
+    color: '#FEFAE0',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+    marginTop: 8,
+    color: '#B99470',
+    textAlign: 'center',
+  },
+  sectionCard: {
+    backgroundColor: '#FEFAE0',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  listItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#B99470',
+  },
+  listTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#B99470',
+  },
+  listDate: {
+    fontSize: 13,
+    color: '#B99470',
+    marginTop: 4,
+  },
+  budgetItem: {
+    marginBottom: 16,
+  },
+  budgetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  progressBarBackground: {
+    height: 10,
+    backgroundColor: '#B99470',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 999,
   },
 });
