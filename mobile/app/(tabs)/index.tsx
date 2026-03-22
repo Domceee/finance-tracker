@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 
 const recentTransactions = [
   { id: '1', title: 'Groceries', amount: -30.54, date: 'Today' },
@@ -27,28 +27,6 @@ export default function DashboardScreen() {
       <View style={styles.balanceCard}>
         <Text style={styles.balanceTitle}>Total Balance</Text>
         <Text style={styles.balanceAmount}>€{totalBalance.toFixed(2)}</Text>
-      </View>
-
-      <View style={styles.row}>
-        <View style={[styles.smallCard, styles.cardSpacing]}>
-          <Text style={styles.balanceTitle}>Income</Text>
-          <Text style={styles.incomeText}>€{income.toFixed(2)}</Text>
-        </View>
-
-        <View style={styles.smallCard}>
-          <Text style={styles.balanceTitle}>Expenses</Text>
-          <Text style={styles.expenseText}>€{expenses.toFixed(2)}</Text>
-        </View>
-      </View>
-
-      <View style={styles.row}>
-        <Pressable style={[styles.actionButton, styles.cardSpacing]}>
-          <Text style={styles.actionButtonText}>Add Income</Text>
-        </Pressable>
-
-        <Pressable style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Add Expense</Text>
-        </Pressable> 
       </View>
 
       <Text style={styles.sectionTitle}>Recent Transactions</Text>
@@ -163,13 +141,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F44336',
   },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#B99470',
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
   actionButtonText: {
     fontWeight: '600',
     fontSize: 15,
@@ -180,7 +151,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
     marginTop: 8,
-    color: '#B99470',
+    color: '#FEFAE0',
     textAlign: 'center',
   },
   sectionCard: {
