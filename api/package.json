@@ -2,16 +2,21 @@
   "name": "api",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "type": "module",
+  "main": "dist/src/server.js",
   "scripts": {
     "dev": "tsx src/server.ts",
+    "build": "tsc",
+    "start": "node dist/src/server.js",
     "prisma:studio": "prisma studio"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.5.0",
     "@prisma/client": "^7.5.0",
+    "better-sqlite3": "^12.8.0",
     "express": "^5.2.1"
   },
   "devDependencies": {
