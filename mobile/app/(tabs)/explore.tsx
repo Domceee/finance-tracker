@@ -1,14 +1,36 @@
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
-import { router } from 'expo-router';
-
-const transactions = [
-  { id: '1', title: 'Groceries', category: 'Food', amount: -24.5, date: '2026-03-20' },
-  { id: '2', title: 'Salary', category: 'Income', amount: 1200, date: '2026-03-18' },
-  { id: '3', title: 'Coffee', category: 'Food', amount: -3.2, date: '2026-03-18' },
-  { id: '4', title: 'Bus ticket', category: 'Transport', amount: -1.5, date: '2026-03-17' },
-];
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { getTransactions, Transaction } from '@/lib/api'; 
 
 export default function TransactionsScreen() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadTransactions = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await getTransactions();
+      setTransactions(data);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+    }, [loadTransactions])
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#FEFAE0" />
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -20,14 +42,14 @@ export default function TransactionsScreen() {
 
       <FlatList
         data={transactions}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <Pressable style={styles.card}>
             <View>
               <Text style={styles.itemTitle}>{item.title}</Text>
               <Text style={styles.itemSubtitle}>
-                {item.category} • {item.date}
+                {item.category} • {new Date(item.date).toLocaleDateString()}
               </Text>
             </View>
 

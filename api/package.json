@@ -8,7 +8,11 @@
     "dev": "tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/src/server.js",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "test:prepare": "node --env-file=.env.test ./node_modules/prisma/build/index.js db push",
+    "pretest": "npm run test:prepare",
+    "test": "node --env-file=.env.test ./node_modules/vitest/vitest.mjs run --pool=threads",
+    "test:watch": "node --env-file=.env.test ./node_modules/vitest/vitest.mjs --pool=threads"
   },
   "keywords": [],
   "author": "",
@@ -22,8 +26,12 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
+    "@types/supertest": "^7.2.0",
+    "dotenv": "^17.4.0",
     "prisma": "^7.5.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
   }
 }

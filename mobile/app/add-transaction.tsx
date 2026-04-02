@@ -1,12 +1,46 @@
-import { View, Text, TextInput, StyleSheet, Pressable } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
+import { createTransaction } from '@/lib/api';
 
 export default function AddTransactionScreen() {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [type, setType] = useState<'expense' | 'income'>('expense');
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function handleSave() {
+    if (!title.trim() || !amount.trim() || !category.trim()) {
+      Alert.alert('Missing fields', 'Please fill in all fields before saving.');
+      return;
+    }
+
+    const parsedAmount = Number(amount);
+
+    if (Number.isNaN(parsedAmount)) {
+      Alert.alert('Invalid amount', 'Please enter a valid number.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      await createTransaction({
+        title: title.trim(),
+        amount: parsedAmount,
+        type,
+        category: category.trim(),
+        date: new Date().toISOString(),
+      });
+
+      router.back();
+    } catch {
+      Alert.alert('Error', 'Failed to save transaction.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -32,13 +66,7 @@ export default function AddTransactionScreen() {
         </Pressable>
       </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Title"
-        value={title}
-        onChangeText={setTitle}
-      />
-
+      <TextInput style={styles.input} placeholder="Title" value={title} onChangeText={setTitle} />
       <TextInput
         style={styles.input}
         placeholder="Amount"
@@ -46,7 +74,6 @@ export default function AddTransactionScreen() {
         onChangeText={setAmount}
         keyboardType="numeric"
       />
-
       <TextInput
         style={styles.input}
         placeholder="Category"
@@ -54,8 +81,10 @@ export default function AddTransactionScreen() {
         onChangeText={setCategory}
       />
 
-      <Pressable style={styles.saveButton} onPress={() => router.back()}>
-        <Text style={styles.saveButtonText}>Save Transaction</Text>
+      <Pressable style={styles.saveButton} onPress={handleSave} disabled={isSaving}>
+        <Text style={styles.saveButtonText}>
+          {isSaving ? 'Saving...' : 'Save Transaction'}
+        </Text>
       </Pressable>
     </View>
   );
