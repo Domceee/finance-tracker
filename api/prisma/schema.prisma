@@ -11,12 +11,33 @@ datasource db {
   provider = "sqlite"
 }
 
+model User {
+  id           Int           @id @default(autoincrement())
+  googleId     String        @unique
+  email        String        @unique
+  name         String?
+  avatarUrl    String?
+  transactions Transaction[]
+  sessions     Session[]
+}
+
 model Transaction {
-  id          Int @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   title       String
   amount      Float
   type        String
   category    String
   date        DateTime
   description String?
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
 }
