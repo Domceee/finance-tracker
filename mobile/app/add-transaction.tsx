@@ -1,44 +1,30 @@
-import { View, Text, TextInput, StyleSheet, Pressable, Alert } from 'react-native';
-import { router } from 'expo-router';
 import { useState } from 'react';
-import { createTransaction } from '@/lib/api';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
+import { router } from 'expo-router';
+import { createTransaction } from '../lib/api';
 
 export default function AddTransactionScreen() {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
   const [type, setType] = useState<'expense' | 'income'>('expense');
-  const [isSaving, setIsSaving] = useState(false);
+  const [category, setCategory] = useState('');
+  const [description, setDescription] = useState('');
 
-  async function handleSave() {
-    if (!title.trim() || !amount.trim() || !category.trim()) {
-      Alert.alert('Missing fields', 'Please fill in all fields before saving.');
-      return;
-    }
-
-    const parsedAmount = Number(amount);
-
-    if (Number.isNaN(parsedAmount)) {
-      Alert.alert('Invalid amount', 'Please enter a valid number.');
-      return;
-    }
-
+  async function handleSubmit() {
     try {
-      setIsSaving(true);
-
       await createTransaction({
-        title: title.trim(),
-        amount: parsedAmount,
+        title,
+        amount: Number(amount),
         type,
-        category: category.trim(),
+        category,
         date: new Date().toISOString(),
+        description,
       });
 
-      router.back();
+      Alert.alert('Success', 'Transaction created successfully');
+      router.replace('/(tabs)');
     } catch {
-      Alert.alert('Error', 'Failed to save transaction.');
-    } finally {
-      setIsSaving(false);
+      Alert.alert('Error', 'Failed to create transaction');
     }
   }
 
@@ -46,27 +32,13 @@ export default function AddTransactionScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Add Transaction</Text>
 
-      <View style={styles.row}>
-        <Pressable
-          style={[styles.typeButton, type === 'expense' && styles.activeButton]}
-          onPress={() => setType('expense')}
-        >
-          <Text style={[styles.typeText, type === 'expense' && styles.activeText]}>
-            Expense
-          </Text>
-        </Pressable>
+      <TextInput
+        style={styles.input}
+        placeholder="Title"
+        value={title}
+        onChangeText={setTitle}
+      />
 
-        <Pressable
-          style={[styles.typeButton, type === 'income' && styles.activeButton]}
-          onPress={() => setType('income')}
-        >
-          <Text style={[styles.typeText, type === 'income' && styles.activeText]}>
-            Income
-          </Text>
-        </Pressable>
-      </View>
-
-      <TextInput style={styles.input} placeholder="Title" value={title} onChangeText={setTitle} />
       <TextInput
         style={styles.input}
         placeholder="Amount"
@@ -74,6 +46,7 @@ export default function AddTransactionScreen() {
         onChangeText={setAmount}
         keyboardType="numeric"
       />
+
       <TextInput
         style={styles.input}
         placeholder="Category"
@@ -81,10 +54,29 @@ export default function AddTransactionScreen() {
         onChangeText={setCategory}
       />
 
-      <Pressable style={styles.saveButton} onPress={handleSave} disabled={isSaving}>
-        <Text style={styles.saveButtonText}>
-          {isSaving ? 'Saving...' : 'Save Transaction'}
-        </Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Description"
+        value={description}
+        onChangeText={setDescription}
+      />
+
+      <View style={styles.typeRow}>
+        <Pressable
+          style={[styles.typeButton, type === 'expense' && styles.activeButton]}
+          onPress={() => setType('expense')}>
+          <Text style={styles.typeButtonText}>Expense</Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.typeButton, type === 'income' && styles.activeButton]}
+          onPress={() => setType('income')}>
+          <Text style={styles.typeButtonText}>Income</Text>
+        </Pressable>
+      </View>
+
+      <Pressable style={styles.submitButton} onPress={handleSubmit}>
+        <Text style={styles.submitButtonText}>Save Transaction</Text>
       </Pressable>
     </View>
   );
@@ -93,17 +85,24 @@ export default function AddTransactionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 24,
     backgroundColor: '#C0C78C',
-    padding: 20,
-    paddingTop: 40,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    marginBottom: 20,
     color: '#FEFAE0',
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  row: {
+  input: {
+    backgroundColor: '#FEFAE0',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    color: '#333',
+  },
+  typeRow: {
     flexDirection: 'row',
     marginBottom: 16,
   },
@@ -111,35 +110,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#B99470',
     padding: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 8,
   },
   activeButton: {
-    backgroundColor: '#FEFAE0',
+    backgroundColor: '#8A6E52',
   },
-  typeText: {
-    fontWeight: '600',
+  typeButtonText: {
     color: '#FEFAE0',
+    fontWeight: '600',
   },
-  activeText: {
-    color: '#B99470',
-  },
-  input: {
-    backgroundColor: '#FEFAE0',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
-  },
-  saveButton: {
-    backgroundColor: '#B99470',
+  submitButton: {
+    backgroundColor: '#8A6E52',
     padding: 16,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
   },
-  saveButtonText: {
+  submitButtonText: {
     color: '#FEFAE0',
     fontWeight: '700',
+    fontSize: 16,
   },
 });

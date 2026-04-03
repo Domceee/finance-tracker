@@ -76,6 +76,20 @@ export async function refreshSession(refreshToken: string): Promise<RefreshRespo
   return response.json();
 }
 
+export async function logoutSession(refreshToken: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/auth/logout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to log out');
+  }
+}
+
 export async function getTransactions(): Promise<Transaction[]> {
   const response = await apiFetch('/transactions');
 

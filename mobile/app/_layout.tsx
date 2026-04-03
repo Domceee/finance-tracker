@@ -1,15 +1,56 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import 'react-native-reanimated';
-import { AuthProvider } from '../providers/auth-provider';
+import { AuthProvider, useAuth } from '../providers/auth-provider';
+import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+
+function AppNavigation() {
+  const { isLoading, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const inTabsGroup = segments[0] === '(tabs)';
+
+    if (!isAuthenticated && inTabsGroup) {
+      router.replace('/login');
+    }
+
+    if (isAuthenticated && !inTabsGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, isLoading, router, segments]);
+
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+      }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="login" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+    </Stack>
+  )
+}
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
+      <AppNavigation />
     </AuthProvider>
   );
 }

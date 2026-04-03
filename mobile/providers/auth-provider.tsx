@@ -5,7 +5,7 @@ import {
   saveAccessToken,
   saveTokens,
 } from '../lib/auth-storage';
-import { devLogin, refreshSession } from '../lib/api';
+import { devLogin, logoutSession, refreshSession } from '../lib/api';
 
 type AuthUser = {
   id: number;
@@ -65,9 +65,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
-    await clearTokens();
-    setAccessToken(null);
-    setUser(null);
+    try {
+      const refreshToken = await getRefreshToken();
+
+      if (refreshToken) {
+        await logoutSession(refreshToken);
+      }
+    } finally {
+      await clearTokens();
+      setAccessToken(null);
+      setUser(null);
+    }
   }
 
   return (
