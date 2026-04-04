@@ -14,13 +14,18 @@ function AppNavigation() {
       return;
     }
 
-    const inTabsGroup = segments[0] === '(tabs)';
+    const currentRoute = segments[0];
+    const inTabsGroup = currentRoute === '(tabs)';
+    const inAuthScreen =
+      currentRoute === 'login' ||
+      currentRoute === 'register' ||
+      currentRoute === 'verify-email';
 
-    if (!isAuthenticated && inTabsGroup) {
+    if (!isAuthenticated && (inTabsGroup || currentRoute === 'add-transaction')) {
       router.replace('/login');
     }
 
-    if (isAuthenticated && !inTabsGroup) {
+    if (isAuthenticated && inAuthScreen) {
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading, router, segments]);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { createTransaction } from '../lib/api';
+import { AppPalette } from '../constants/theme';
 
 export default function AddTransactionScreen() {
   const [title, setTitle] = useState('');
@@ -35,6 +36,7 @@ export default function AddTransactionScreen() {
       <TextInput
         style={styles.input}
         placeholder="Title"
+        placeholderTextColor={AppPalette.muted}
         value={title}
         onChangeText={setTitle}
       />
@@ -42,6 +44,7 @@ export default function AddTransactionScreen() {
       <TextInput
         style={styles.input}
         placeholder="Amount"
+        placeholderTextColor={AppPalette.muted}
         value={amount}
         onChangeText={setAmount}
         keyboardType="numeric"
@@ -50,6 +53,7 @@ export default function AddTransactionScreen() {
       <TextInput
         style={styles.input}
         placeholder="Category"
+        placeholderTextColor={AppPalette.muted}
         value={category}
         onChangeText={setCategory}
       />
@@ -57,6 +61,7 @@ export default function AddTransactionScreen() {
       <TextInput
         style={styles.input}
         placeholder="Description"
+        placeholderTextColor={AppPalette.muted}
         value={description}
         onChangeText={setDescription}
       />
@@ -86,21 +91,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
-    backgroundColor: '#C0C78C',
+    backgroundColor: AppPalette.void,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#FEFAE0',
+    color: AppPalette.text,
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   input: {
-    backgroundColor: '#FEFAE0',
-    borderRadius: 12,
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.muted,
+    borderWidth: 1,
+    borderRadius: 16,
     padding: 14,
     marginBottom: 12,
-    color: '#333',
+    color: AppPalette.text,
   },
   typeRow: {
     flexDirection: 'row',
@@ -108,27 +115,30 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     flex: 1,
-    backgroundColor: '#B99470',
+    backgroundColor: AppPalette.surface,
+    borderWidth: 1,
+    borderColor: AppPalette.muted,
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
     marginRight: 8,
   },
   activeButton: {
-    backgroundColor: '#8A6E52',
+    backgroundColor: AppPalette.accent,
+    borderColor: AppPalette.accent,
   },
   typeButtonText: {
-    color: '#FEFAE0',
-    fontWeight: '600',
+    color: AppPalette.text,
+    fontWeight: '700',
   },
   submitButton: {
-    backgroundColor: '#8A6E52',
+    backgroundColor: AppPalette.accent,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
   },
   submitButtonText: {
-    color: '#FEFAE0',
+    color: AppPalette.void,
     fontWeight: '700',
     fontSize: 16,
   },

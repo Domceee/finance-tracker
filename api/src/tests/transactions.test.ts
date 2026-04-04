@@ -27,7 +27,7 @@ async function loginTestUser() {
   };
 }
 
-describe('Transactions API', () => {
+describe.sequential('Transactions API', () => {
   beforeEach(async () => {
     await prisma.session.deleteMany();
     await prisma.transaction.deleteMany();
@@ -87,6 +87,20 @@ describe('Transactions API', () => {
       userId: user.id,
     });
     expect(response.body.id).toEqual(expect.any(Number));
+  });
+
+  it('returns 401 when creating a transaction without auth', async () => {
+    const response = await request(app).post('/transactions').send({
+      title: 'Groceries',
+      amount: 24.5,
+      type: 'expense',
+      category: 'Food',
+      date: '2026-04-02T12:00:00.000Z',
+      description: 'Weekly shopping',
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
   });
 
   it('returns only the logged-in user transactions ordered by date descending', async () => {
@@ -170,6 +184,15 @@ describe('Transactions API', () => {
     });
   });
 
+  it('returns 401 when updating a transaction without auth', async () => {
+    const response = await request(app)
+      .patch('/transactions/1')
+      .send({ title: 'Updated title' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
+  });
+
   it('deletes a transaction owned by the logged-in user', async () => {
     const { accessToken, user } = await loginTestUser();
 
@@ -195,6 +218,13 @@ describe('Transactions API', () => {
     });
 
     expect(deleted).toBeNull();
+  });
+
+  it('returns 401 when deleting a transaction without auth', async () => {
+    const response = await request(app).delete('/transactions/1');
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
   });
 
   it('returns 400 for invalid delete id', async () => {

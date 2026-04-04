@@ -5,7 +5,7 @@ import {
   saveAccessToken,
   saveTokens,
 } from '../lib/auth-storage';
-import { devLogin, logoutSession, refreshSession } from '../lib/api';
+import { login, logoutSession, refreshSession, register, verifyEmail } from '../lib/api';
 
 type AuthUser = {
   id: number;
@@ -19,7 +19,9 @@ type AuthContextValue = {
   accessToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, name?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<string>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -56,8 +58,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     bootstrap();
   }, []);
 
-  async function login(email: string, name?: string) {
-    const result = await devLogin(email, name);
+  async function loginUser(email: string, password: string) {
+    const result = await login(email, password);
+
+    await saveTokens(result.accessToken, result.refreshToken);
+    setAccessToken(result.accessToken);
+    setUser(result.user);
+  }
+
+  async function registerUser(email: string, password: string, name?: string) {
+    await register(email, password, name);
+
+    return email.trim().toLowerCase();
+  }
+
+  async function verifyEmailCode(email: string, code: string) {
+    const result = await verifyEmail(email, code);
 
     await saveTokens(result.accessToken, result.refreshToken);
     setAccessToken(result.accessToken);
@@ -85,7 +101,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         accessToken,
         isLoading,
         isAuthenticated: Boolean(accessToken && user),
-        login,
+        login: loginUser,
+        register: registerUser,
+        verifyEmail: verifyEmailCode,
         logout,
       }}>
       {children}

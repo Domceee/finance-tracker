@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppPalette } from '../../constants/theme';
 
 const categoryData = [
   { id: '1', name: 'Food', amount: 220, percent: 22 },
@@ -79,7 +80,7 @@ export default function OverviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#C0C78C',
+    backgroundColor: AppPalette.void,
   },
   content: {
     padding: 20,
@@ -89,11 +90,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     marginTop: 20,
-    color: '#FAFAE0',
+    color: AppPalette.text,
   },
   subtitle: {
     fontSize: 16,
-    color: '#FAFAE0',
+    color: AppPalette.accent,
     marginTop: 4,
     marginBottom: 20,
   },
@@ -104,40 +105,44 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#FEFAE0',
-    borderRadius: 16,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#211C33',
     padding: 14,
   },
   cardLabel: {
     fontSize: 13,
-    color: '#B99470',
+    color: AppPalette.accent,
     marginBottom: 8,
   },
   incomeText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#2e7d32',
+    color: AppPalette.success,
   },
   expenseText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#c62828',
+    color: AppPalette.danger,
   },
   leftText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#2563eb',
+    color: AppPalette.text,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 12,
     marginTop: 8,
-    color: '#FEFAE0',
+    color: AppPalette.text,
   },
   sectionCard: {
-    backgroundColor: '#FEFAE0',
-    borderRadius: 16,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#211C33',
     padding: 16,
     marginBottom: 16,
   },
@@ -147,43 +152,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#B99470',
+    borderBottomColor: AppPalette.elevated,
   },
   categoryName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#B99470',
+    color: AppPalette.text,
   },
   categoryPercent: {
     fontSize: 13,
-    color: '#B99470',
+    color: AppPalette.accent,
     marginTop: 4,
   },
   categoryAmount: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#B99470',
+    color: AppPalette.text,
   },
   highlightCard: {
-    backgroundColor: '#FEFAE0',
-    borderRadius: 16,
+    backgroundColor: AppPalette.elevated,
+    borderRadius: 20,
     padding: 18,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: AppPalette.muted,
   },
   highlightLabel: {
     fontSize: 14,
-    color: '#B99470',
+    color: AppPalette.accent,
     marginBottom: 8,
   },
   highlightAmount: {
     fontSize: 30,
     fontWeight: '700',
     marginBottom: 8,
-    color: '#39eb25',
+    color: AppPalette.text,
   },
   highlightText: {
     fontSize: 14,
-    color: '#B99470',
+    color: AppPalette.text,
     lineHeight: 20,
   },
   insightItem: {
@@ -195,12 +202,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginRight: 8,
     lineHeight: 20,
-    color: '#B99470',
+    color: AppPalette.accent,
   },
   insightText: {
     flex: 1,
     fontSize: 14,
-    color: '#B99470',
+    color: AppPalette.text,
     lineHeight: 20,
   },
 });

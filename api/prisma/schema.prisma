@@ -13,8 +13,12 @@ datasource db {
 
 model User {
   id           Int           @id @default(autoincrement())
-  googleId     String        @unique
+  googleId     String?       @unique
   email        String        @unique
+  passwordHash String?
+  isVerified   Boolean       @default(false)
+  verificationCode String?
+  verificationExpiresAt DateTime?
   name         String?
   avatarUrl    String?
   transactions Transaction[]

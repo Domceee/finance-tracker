@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from '
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { getTransactions, Transaction } from '@/lib/api'; 
+import { AppPalette } from '../../constants/theme';
 
 export default function TransactionsScreen() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -26,7 +27,7 @@ export default function TransactionsScreen() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#FEFAE0" />
+        <ActivityIndicator size="large" color={AppPalette.accent} />
       </View>
     )
   }
@@ -69,7 +70,7 @@ export default function TransactionsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#C0C78C',
+    backgroundColor: AppPalette.void,
     padding: 20,
   },
   header: {
@@ -78,29 +79,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    color: '#B99470',
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#FEFAE0',
+    color: AppPalette.text,
   },
   addButton: {
-    backgroundColor: '#B99470',
+    backgroundColor: AppPalette.accent,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 10,
+    borderRadius: 14,
   },
   addButtonText: {
-    color: '#FEFAE0',
-    fontWeight: '600',
+    color: AppPalette.void,
+    fontWeight: '700',
   },
   listContent: {
     paddingBottom: 24,
   },
   card: {
-    backgroundColor: '#FEFAE0',
-    borderRadius: 14,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#211C33',
     padding: 16,
     marginBottom: 12,
     flexDirection: 'row',
@@ -110,26 +112,26 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#B99470',
+    color: AppPalette.text,
   },
   itemSubtitle: {
     marginTop: 4,
     fontSize: 13,
-    color: '#B99470',
+    color: AppPalette.accent,
   },
   income: {
-    color: '#2e7d32',
+    color: AppPalette.success,
     fontWeight: '700',
     fontSize: 16,
   },
   expense: {
-    color: '#c62828',
+    color: AppPalette.danger,
     fontWeight: '700',
     fontSize: 16,
   },
   emptyText: {
     textAlign: 'center',
-    color: '#B99470',
+    color: AppPalette.accent,
     marginTop: 40,
   },
 });

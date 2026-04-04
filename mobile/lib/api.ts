@@ -24,7 +24,7 @@ export type AuthUser = {
   avatarUrl?: string | null;
 };
 
-type DevLoginResponse = {
+type AuthResponse = {
   accessToken: string;
   refreshToken: string;
   user: AuthUser;
@@ -44,17 +44,67 @@ type CreateTransactionInput = {
   description?: string;
 };
 
-export async function devLogin(email: string, name?: string): Promise<DevLoginResponse> {
-  const response = await fetch(`${BASE_URL}/auth/dev-login`, {
+type RegisterStartResponse = {
+  message: string;
+};
+
+async function getErrorMessage(response: Response, fallbackMessage: string) {
+  try {
+    const data = (await response.json()) as { error?: string };
+
+    if (data?.error && typeof data.error === 'string') {
+      return data.error;
+    }
+  } catch {
+    return fallbackMessage;
+  }
+
+  return fallbackMessage;
+}
+
+export async function register(email: string, password: string, name?: string): Promise<RegisterStartResponse> {
+  const response = await fetch(`${BASE_URL}/auth/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ email, name }),
+    body: JSON.stringify({ email, password, name }),
   });
 
   if (!response.ok) {
-    throw new Error('Failed to log in');
+    throw new Error(await getErrorMessage(response, 'Failed to register'));
+  }
+
+  return response.json();
+}
+
+export async function verifyEmail(email: string, code: string): Promise<AuthResponse> {
+  const response = await fetch(`${BASE_URL}/auth/verify-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, code }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to verify email'));
+  }
+
+  return response.json();
+}
+
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to log in'));
   }
 
   return response.json();
@@ -70,7 +120,7 @@ export async function refreshSession(refreshToken: string): Promise<RefreshRespo
   });
 
   if (!response.ok) {
-    throw new Error('Failed to refresh session');
+    throw new Error(await getErrorMessage(response, 'Failed to refresh session'));
   }
 
   return response.json();
@@ -86,7 +136,7 @@ export async function logoutSession(refreshToken: string): Promise<void> {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to log out');
+    throw new Error(await getErrorMessage(response, 'Failed to log out'));
   }
 }
 
@@ -94,7 +144,7 @@ export async function getTransactions(): Promise<Transaction[]> {
   const response = await apiFetch('/transactions');
 
   if (!response.ok) {
-    throw new Error('Failed to fetch transactions');
+    throw new Error(await getErrorMessage(response, 'Failed to fetch transactions'));
   }
 
   return response.json();
@@ -107,7 +157,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
   });
 
   if (!response.ok) {
-    throw new Error('Failed to create transaction');
+    throw new Error(await getErrorMessage(response, 'Failed to create transaction'));
   }
 
   return response.json();

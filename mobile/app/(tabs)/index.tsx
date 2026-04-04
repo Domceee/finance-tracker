@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from
 import { useIsFocused } from '@react-navigation/native';
 import { getTransactions, Transaction } from '../../lib/api';
 import { useAuth } from '../../providers/auth-provider';
+import { AppPalette } from '../../constants/theme';
 
 const budgetCategories = [
   { id: '1', title: 'Food', amount: 50, limit: 150 },
@@ -84,7 +85,7 @@ export default function DashboardScreen() {
       <Text style={styles.sectionTitle}>Recent Transactions</Text>
       <View style={styles.sectionCard}>
         {isLoading ? (
-          <ActivityIndicator size="large" color="#B99470" />
+          <ActivityIndicator size="large" color={AppPalette.accent} />
         ) : transactions.length === 0 ? (
           <Text style={styles.emptyText}>No transactions yet.</Text>
         ) : (
@@ -137,13 +138,15 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#C0C78C',
+    backgroundColor: AppPalette.void,
   },
   titleContainer: {
-    backgroundColor: '#FEFAE0',
-    borderRadius: 16,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 22,
     padding: 20,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#211C33',
   },
   headerRow: {
     flexDirection: 'row',
@@ -162,38 +165,42 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     marginBottom: 8,
-    color: '#B99470',
+    color: AppPalette.text,
   },
   subtitle: {
     fontSize: 16,
-    color: '#B99470',
+    color: AppPalette.accent,
     marginTop: 4,
   },
   logoutButton: {
-    backgroundColor: '#B99470',
+    backgroundColor: AppPalette.elevated,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: AppPalette.muted,
   },
   logoutButtonText: {
-    color: '#FEFAE0',
+    color: AppPalette.text,
     fontWeight: '700',
   },
   balanceCard: {
-    backgroundColor: '#FEFAE0',
-    borderRadius: 16,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 22,
     padding: 20,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#211C33',
   },
   balanceTitle: {
     fontSize: 14,
-    color: '#B99470',
+    color: AppPalette.accent,
     marginBottom: 8,
   },
   balanceAmount: {
     fontSize: 30,
     fontWeight: '700',
-    color: '#B99470',
+    color: AppPalette.text,
   },
   row: {
     flexDirection: 'row',
@@ -201,9 +208,11 @@ const styles = StyleSheet.create({
   },
   smallCard: {
     flex: 1,
-    backgroundColor: '#FEFAE0',
-    borderRadius: 16,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 20,
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#211C33',
   },
   cardSpacing: {
     marginRight: 12,
@@ -211,26 +220,28 @@ const styles = StyleSheet.create({
   incomeText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#4CAF50',
+    color: AppPalette.success,
   },
   expenseText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#F44336',
+    color: AppPalette.danger,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 12,
     marginTop: 8,
-    color: '#FEFAE0',
-    textAlign: 'center',
+    color: AppPalette.text,
+    textAlign: 'left',
   },
   sectionCard: {
-    backgroundColor: '#FEFAE0',
-    borderRadius: 16,
+    backgroundColor: AppPalette.surface,
+    borderRadius: 22,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#211C33',
   },
   listItem: {
     flexDirection: 'row',
@@ -238,16 +249,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#B99470',
+    borderBottomColor: AppPalette.elevated,
   },
   listTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#B99470',
+    color: AppPalette.text,
   },
   listDate: {
     fontSize: 13,
-    color: '#B99470',
+    color: AppPalette.accent,
     marginTop: 4,
   },
   budgetItem: {
@@ -260,18 +271,18 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 10,
-    backgroundColor: '#B99470',
+    backgroundColor: AppPalette.elevated,
     borderRadius: 999,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#4CAF50',
+    backgroundColor: AppPalette.accent,
     borderRadius: 999,
   },
   emptyText: {
     textAlign: 'center',
-    color: '#B99470',
+    color: AppPalette.accent,
     fontSize: 16,
     paddingVertical: 12,
   },
