@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { AppPalette } from '../../constants/theme';
 import {
   getOverview,
+  getOverviewInsights,
   Overview,
   OverviewCategoryBreakdown,
+  OverviewInsights,
   TransactionCategory,
 } from '../../lib/api';
 
@@ -177,7 +179,16 @@ export default function OverviewScreen() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [aiInsights, setAiInsights] = useState<OverviewInsights | null>(null);
+  const [isInsightsLoading, setIsInsightsLoading] = useState(false);
+  const [insightsGeneratedAt, setInsightsGeneratedAt] = useState<string | null>(null);
+  const [isInsightsCached, setIsInsightsCached] = useState(false);
+
   useEffect(() => {
+    setAiInsights(null);
+    setInsightsGeneratedAt(null);
+    setIsInsightsCached(false);
+
     async function loadOverview() {
       setIsLoading(true);
 
@@ -195,6 +206,27 @@ export default function OverviewScreen() {
       loadOverview();
     }
   }, [isFocused, selectedMonth.month, selectedMonth.year]);
+
+  async function handleLoadInsights() {
+    if (!overview) {
+      return;
+    }
+
+    setIsInsightsLoading(true);
+
+    try {
+      const result = await getOverviewInsights(overview.year, overview.month);
+      setAiInsights(result.insights);
+      setInsightsGeneratedAt(result.generatedAt);
+      setIsInsightsCached(result.cached);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch overview insights';
+
+      Alert.alert('AI Insights', message);
+    } finally {
+      setIsInsightsLoading(false);
+    }
+  }
 
   const monthLabel = overview
     ? getMonthLabel(overview.year, overview.month)
@@ -278,6 +310,48 @@ export default function OverviewScreen() {
               </View>
             ))}
           </>
+        )}
+      </View>
+
+      <Text style={styles.sectionTitle}>AI Insights</Text>
+      <View style={styles.sectionCard}>
+        <Pressable
+          style={[styles.insightsButton, isInsightsLoading && styles.insightsButtonDisabled]}
+          onPress={handleLoadInsights}
+          disabled={isInsightsLoading || !overview}>
+          <Text style={styles.insightsButtonText}>
+            {isInsightsLoading ? 'Generating...' : 'Get AI Insights'}
+          </Text>
+        </Pressable>
+
+        {aiInsights ? (
+          <View style={styles.insightsCardStack}>
+            <View style={styles.aiInsightCard}>
+              <Text style={styles.aiInsightLabel}>Summary</Text>
+              <Text style={styles.aiInsightText}>{aiInsights.summary}</Text>
+            </View>
+
+            <View style={styles.aiInsightCard}>
+              <Text style={styles.aiInsightLabel}>Watch Out</Text>
+              <Text style={styles.aiInsightText}>{aiInsights.warning}</Text>
+            </View>
+
+            <View style={styles.aiInsightCard}>
+              <Text style={styles.aiInsightLabel}>Suggestion</Text>
+              <Text style={styles.aiInsightText}>{aiInsights.tip}</Text>
+            </View>
+
+            <Text style={styles.aiInsightMeta}>
+              {isInsightsCached ? 'Loaded from cache' : 'Freshly generated'}
+              {insightsGeneratedAt
+                ? ` • ${new Date(insightsGeneratedAt).toLocaleString()}`
+                : ''}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>
+            Tap the button to generate AI insights for this month.
+          </Text>
         )}
       </View>
     </ScrollView>
@@ -380,6 +454,50 @@ const styles = StyleSheet.create({
     borderColor: '#211C33',
     padding: 16,
     marginBottom: 16,
+  },
+  insightsButton: {
+    backgroundColor: AppPalette.accent,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  insightsButtonDisabled: {
+    opacity: 0.6,
+  },
+  insightsButtonText: {
+    color: AppPalette.void,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  insightsCardStack: {
+    gap: 12,
+  },
+  aiInsightCard: {
+    backgroundColor: AppPalette.elevated,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: AppPalette.muted,
+  },
+  aiInsightLabel: {
+    color: AppPalette.accent,
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  aiInsightText: {
+    color: AppPalette.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  aiInsightMeta: {
+    color: AppPalette.accent,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
   },
   chartWrapper: {
     alignSelf: 'center',

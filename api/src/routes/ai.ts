@@ -20,7 +20,7 @@ function isCurrentMonth(year: number, month: number) {
   return year === now.getUTCFullYear() && month === now.getUTCMonth() + 1;
 }
 
-router.post('/ask', async (req, res) => {
+router.post('/ask', requireAuth, async (req, res) => {
   const { prompt } = req.body;
 
   if (!apiKey) {
@@ -55,7 +55,7 @@ router.post('/overview-insights', requireAuth, async (req, res) => {
   );
 
   if (!parsed) {
-    return res.status(400).json({ error: 'Invalid year or month '});
+    return res.status(400).json({ error: 'Invalid year or month' });
   }
 
   const { year, month } = parsed;

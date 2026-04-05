@@ -34,6 +34,18 @@ export const EXPENSE_TRANSACTION_CATEGORIES = TRANSACTION_CATEGORIES.filter(
   (category) => category !== 'SALARY',
 );
 
+export type OverviewInsights = {
+  summary: string;
+  warning: string;
+  tip: string;
+};
+
+export type OverviewInsightsResponse = {
+  insights: OverviewInsights;
+  cached: boolean;
+  generatedAt: string | null;
+};
+
 export type OverviewCategoryBreakdown = {
   category: TransactionCategory;
   amount: number;
@@ -211,6 +223,22 @@ export async function getOverview(year?: number, month?: number): Promise<Overvi
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch overview'));
+  }
+
+  return response.json();
+}
+
+export async function getOverviewInsights(
+  year: number,
+  month: number,
+): Promise<OverviewInsightsResponse> {
+  const response = await apiFetch('/ai/overview-insights', {
+    method: 'POST',
+    body: JSON.stringify({ year, month }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch overview insights'));
   }
 
   return response.json();
