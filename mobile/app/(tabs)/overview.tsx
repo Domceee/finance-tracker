@@ -1,77 +1,227 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { AppPalette } from '../../constants/theme';
+import {
+  getOverview,
+  Overview,
+  OverviewCategoryBreakdown,
+  TransactionCategory,
+} from '../../lib/api';
 
-const categoryData = [
-  { id: '1', name: 'Food', amount: 220, percent: 22 },
-  { id: '2', name: 'Rent', amount: 400, percent: 40 },
-  { id: '3', name: 'Transport', amount: 80, percent: 8 },
-  { id: '4', name: 'Entertainment', amount: 100, percent: 10 },
-  { id: '5', name: 'Left / Unspent', amount: 200, percent: 20 },
-];
+const CHART_COLORS: Record<TransactionCategory, string> = {
+  FOOD: '#A78BFA',
+  SHOPPING: '#F472B6',
+  RENT: '#60A5FA',
+  TRANSPORT: '#34D399',
+  SALARY: '#8BE9A8',
+  ENTERTAINMENT: '#F59E0B',
+  BAR: '#FB7185',
+  EATOUT: '#22D3EE',
+  OTHER: '#94A3B8',
+};
 
-const insights = [
-  'Food is your biggest flexible spending category.',
-  'You can spend about €10/day for the rest of the month.',
-  'Entertainment spending is slightly above your average.',
-];
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-IE', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatCategoryLabel(category: TransactionCategory) {
+  switch (category) {
+    case 'EATOUT':
+      return 'Eat Out';
+    default:
+      return category.charAt(0) + category.slice(1).toLowerCase();
+  }
+}
+
+function getMonthLabel(year: number, month: number) {
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+function polarToCartesian(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  angleInDegrees: number,
+) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+
+  return {
+    x: centerX + radius * Math.cos(angleInRadians),
+    y: centerY + radius * Math.sin(angleInRadians),
+  };
+}
+
+function describeSlice(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  startAngle: number,
+  endAngle: number,
+) {
+  const start = polarToCartesian(centerX, centerY, radius, endAngle);
+  const end = polarToCartesian(centerX, centerY, radius, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+
+  return [
+    `M ${centerX} ${centerY}`,
+    `L ${start.x} ${start.y}`,
+    `A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
+    'Z',
+  ].join(' ');
+}
+
+function SpendingPieChart({ data }: { data: OverviewCategoryBreakdown[] }) {
+  const total = data.reduce((sum, item) => sum + item.amount, 0);
+  const size = 188;
+  const radius = 78;
+  const center = size / 2;
+
+  if (total <= 0) {
+    return null;
+  }
+
+  let currentAngle = 0;
+
+  return (
+    <View style={styles.chartWrapper}>
+      <Svg width={size} height={size}>
+        {data.length === 1 ? (
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill={CHART_COLORS[data[0].category]}
+          />
+        ) : (
+          data.map((item) => {
+            const sliceAngle = (item.amount / total) * 360;
+            const startAngle = currentAngle;
+            const endAngle = currentAngle + sliceAngle;
+            currentAngle = endAngle;
+
+            return (
+              <Path
+                key={item.category}
+                d={describeSlice(center, center, radius, startAngle, endAngle)}
+                fill={CHART_COLORS[item.category]}
+                stroke={AppPalette.surface}
+                strokeWidth={2}
+              />
+            );
+          })
+        )}
+
+        <Circle
+          cx={center}
+          cy={center}
+          r={36}
+          fill={AppPalette.surface}
+          stroke={AppPalette.elevated}
+          strokeWidth={1}
+        />
+      </Svg>
+
+      <View style={styles.chartCenterLabel}>
+        <Text style={styles.chartCenterValue}>{data.length}</Text>
+        <Text style={styles.chartCenterText}>categories</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function OverviewScreen() {
-  const income = 1000;
-  const spent = 800;
-  const left = 200;
+  const isFocused = useIsFocused();
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadOverview() {
+      setIsLoading(true);
+
+      try {
+        const now = new Date();
+        const data = await getOverview(now.getUTCFullYear(), now.getUTCMonth() + 1);
+        setOverview(data);
+      } catch (error) {
+        console.error('Failed to load overview', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    if (isFocused) {
+      loadOverview();
+    }
+  }, [isFocused]);
+
+  const monthLabel = overview ? getMonthLabel(overview.year, overview.month) : 'Current month';
+  const categoryData = overview?.categoryBreakdown ?? [];
+  const income = overview?.incomeTotal ?? 0;
+  const spent = overview?.spentTotal ?? 0;
+  const left = overview?.leftTotal ?? 0;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Overview</Text>
-      <Text style={styles.subtitle}>March summary</Text>
+      <Text style={styles.subtitle}>{monthLabel} summary</Text>
 
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
           <Text style={styles.cardLabel}>Income</Text>
-          <Text style={styles.incomeText}>€{income}</Text>
+          <Text style={styles.incomeText}>{formatCurrency(income)}</Text>
         </View>
 
         <View style={styles.summaryCard}>
           <Text style={styles.cardLabel}>Spent</Text>
-          <Text style={styles.expenseText}>€{spent}</Text>
+          <Text style={styles.expenseText}>{formatCurrency(spent)}</Text>
         </View>
 
         <View style={styles.summaryCard}>
           <Text style={styles.cardLabel}>Left</Text>
-          <Text style={styles.leftText}>€{left}</Text>
+          <Text style={styles.leftText}>{formatCurrency(left)}</Text>
         </View>
       </View>
 
       <Text style={styles.sectionTitle}>Spending Breakdown</Text>
       <View style={styles.sectionCard}>
-        {categoryData.map((item) => (
-          <View key={item.id} style={styles.categoryRow}>
-            <View>
-              <Text style={styles.categoryName}>{item.name}</Text>
-              <Text style={styles.categoryPercent}>{item.percent}% of total</Text>
-            </View>
-            <Text style={styles.categoryAmount}>€{item.amount}</Text>
-          </View>
-        ))}
-      </View>
+        {isLoading ? (
+          <ActivityIndicator size="large" color={AppPalette.accent} />
+        ) : categoryData.length === 0 ? (
+          <Text style={styles.emptyText}>No expense transactions for this month yet.</Text>
+        ) : (
+          <>
+            <SpendingPieChart data={categoryData} />
 
-      <Text style={styles.sectionTitle}>Budget Insight</Text>
-      <View style={styles.highlightCard}>
-        <Text style={styles.highlightLabel}>Unspent This Month</Text>
-        <Text style={styles.highlightAmount}>€{left}</Text>
-        <Text style={styles.highlightText}>
-          You still have room to spend, but keeping this amount unspent improves savings.
-        </Text>
-      </View>
-
-      <Text style={styles.sectionTitle}>Recommendations</Text>
-      <View style={styles.sectionCard}>
-        {insights.map((item, index) => (
-          <View key={index} style={styles.insightItem}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.insightText}>{item}</Text>
-          </View>
-        ))}
+            {categoryData.map((item: OverviewCategoryBreakdown) => (
+              <View key={item.category} style={styles.categoryRow}>
+                <View style={styles.categoryInfo}>
+                  <View
+                    style={[
+                      styles.categorySwatch,
+                      { backgroundColor: CHART_COLORS[item.category] },
+                    ]}
+                  />
+                  <View>
+                    <Text style={styles.categoryName}>{formatCategoryLabel(item.category)}</Text>
+                    <Text style={styles.categoryPercent}>{item.percentage}% of total</Text>
+                  </View>
+                </View>
+                <Text style={styles.categoryAmount}>{formatCurrency(item.amount)}</Text>
+              </View>
+            ))}
+          </>
+        )}
       </View>
     </ScrollView>
   );
@@ -146,6 +296,25 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
+  chartWrapper: {
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  chartCenterLabel: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  chartCenterValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: AppPalette.text,
+  },
+  chartCenterText: {
+    fontSize: 12,
+    color: AppPalette.accent,
+  },
   categoryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -153,6 +322,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: AppPalette.elevated,
+  },
+  categoryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  categorySwatch: {
+    width: 12,
+    height: 12,
+    borderRadius: 999,
   },
   categoryName: {
     fontSize: 16,
@@ -209,5 +388,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: AppPalette.text,
     lineHeight: 20,
+  },
+  emptyText: {
+    color: AppPalette.accent,
+    fontSize: 15,
+    textAlign: 'center',
+    paddingVertical: 12,
   },
 });

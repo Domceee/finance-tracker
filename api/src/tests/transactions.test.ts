@@ -145,6 +145,24 @@ describe.sequential('Transactions API', () => {
     expect(response.body).toEqual({ error: 'Invalid transaction category' });
   });
 
+  it('rejects zero amount when creating a transaction', async () => {
+    const { accessToken } = await loginTestUser();
+
+    const response = await request(app)
+      .post('/transactions')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        title: 'Free purchase',
+        amount: 0,
+        type: 'expense',
+        category: 'FOOD',
+        date: '2026-04-02T12:00:00.000Z',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Amount cannot be 0' });
+  });
+
   it('returns only the logged-in user transactions ordered by date descending', async () => {
     const { accessToken, user } = await loginTestUser();
     const otherUser = await createTestUser();
@@ -288,6 +306,31 @@ describe.sequential('Transactions API', () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'Invalid transaction category' });
+  });
+
+  it('rejects zero amount when updating a transaction', async () => {
+    const { accessToken, user } = await loginTestUser();
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        title: 'Dinner',
+        amount: 30,
+        type: 'expense',
+        category: 'EATOUT',
+        date: new Date('2026-04-02T08:00:00.000Z'),
+        userId: user.id,
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/transactions/${transaction.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        amount: 0,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Amount cannot be 0' });
   });
 
   it('deletes a transaction owned by the logged-in user', async () => {

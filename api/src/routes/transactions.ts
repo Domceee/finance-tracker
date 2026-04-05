@@ -25,12 +25,17 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const userId = req.user!.userId;
   const { title, amount, type, category, date, description } = req.body;
+  const parsedAmount = Number(amount);
+
+  if (!Number.isFinite(parsedAmount) || parsedAmount === 0) {
+    return res.status(400).json({ error: 'Amount cannot be 0' });
+  }
 
   if (type === 'income') {
     const transaction = await prisma.transaction.create({
       data: {
         title,
-        amount: Number(amount),
+        amount: parsedAmount,
         type,
         category: TransactionCategory.SALARY,
         date: new Date(date),
@@ -49,7 +54,7 @@ router.post('/', async (req, res) => {
   const transaction = await prisma.transaction.create({
     data: {
       title,
-      amount: Number(amount),
+      amount: parsedAmount,
       type,
       category,
       date: new Date(date),
@@ -105,6 +110,11 @@ router.patch('/:id', async (req, res) => {
   const nextType = type ?? existingTransaction.type;
   const nextCategory =
     nextType === 'income' ? TransactionCategory.SALARY : category ?? existingTransaction.category;
+  const parsedAmount = amount !== undefined ? Number(amount) : undefined;
+
+  if (parsedAmount !== undefined && (!Number.isFinite(parsedAmount) || parsedAmount === 0)) {
+    return res.status(400).json({ error: 'Amount cannot be 0' });
+  }
 
   if (!transactionCategories.has(nextCategory) || (nextType !== 'income' && !expenseCategories.has(nextCategory))) {
     return res.status(400).json({ error: 'Invalid transaction category' });
@@ -114,7 +124,7 @@ router.patch('/:id', async (req, res) => {
     where: { id },
     data: {
       ...(title !== undefined && { title }),
-      ...(amount !== undefined && { amount: Number(amount) }),
+      ...(parsedAmount !== undefined && { amount: parsedAmount }),
       ...(type !== undefined && { type }),
       category: nextCategory,
       ...(date !== undefined && { date: new Date(date) }),

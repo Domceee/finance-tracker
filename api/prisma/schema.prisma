@@ -24,17 +24,18 @@ enum TransactionCategory {
 }
 
 model User {
-  id           Int           @id @default(autoincrement())
-  googleId     String?       @unique
-  email        String        @unique
-  passwordHash String?
-  isVerified   Boolean       @default(false)
-  verificationCode String?
+  id                    Int              @id @default(autoincrement())
+  googleId              String?          @unique
+  email                 String           @unique
+  passwordHash          String?
+  isVerified            Boolean          @default(false)
+  verificationCode      String?
   verificationExpiresAt DateTime?
-  name         String?
-  avatarUrl    String?
-  transactions Transaction[]
-  sessions     Session[]
+  name                  String?
+  avatarUrl             String?
+  transactions          Transaction[]
+  sessions              Session[]
+  monthlySummaries      MonthlySummary[]
 }
 
 model Transaction {
@@ -56,4 +57,30 @@ model Session {
   refreshToken String   @unique
   expiresAt    DateTime
   createdAt    DateTime @default(now())
+}
+
+model MonthlySummary {
+  id                Int                      @id @default(autoincrement())
+  userId            Int
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  year              Int
+  month             Int
+  incomeTotal       Float
+  spentTotal        Float
+  leftTotal         Float
+  categorySummaries MonthlyCategorySummary[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  @@unique([userId, year, month])
+}
+
+model MonthlyCategorySummary {
+  id               Int                 @id @default(autoincrement())
+  monthlySummaryId Int
+  monthlySummary   MonthlySummary      @relation(fields: [monthlySummaryId], references: [id], onDelete: Cascade)
+  category         TransactionCategory
+  amount           Float
+
+  @@unique([monthlySummaryId, category])
 }

@@ -34,6 +34,21 @@ export const EXPENSE_TRANSACTION_CATEGORIES = TRANSACTION_CATEGORIES.filter(
   (category) => category !== 'SALARY',
 );
 
+export type OverviewCategoryBreakdown = {
+  category: TransactionCategory;
+  amount: number;
+  percentage: number;
+};
+
+export type Overview = {
+  year: number;
+  month: number;
+  incomeTotal: number;
+  spentTotal: number;
+  leftTotal: number;
+  categoryBreakdown: OverviewCategoryBreakdown[];
+};
+
 export type AuthUser = {
   id: number;
   email: string;
@@ -175,6 +190,27 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to create transaction'));
+  }
+
+  return response.json();
+}
+
+export async function getOverview(year?: number, month?: number): Promise<Overview> {
+  const searchParams = new URLSearchParams();
+
+  if (year !== undefined) {
+    searchParams.set('year', String(year));
+  }
+
+  if (month !== undefined) {
+    searchParams.set('month', String(month));
+  }
+
+  const query = searchParams.toString();
+  const response = await apiFetch(`/overview${query ? `?${query}` : ''}`);
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch overview'));
   }
 
   return response.json();
