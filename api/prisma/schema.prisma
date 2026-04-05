@@ -68,6 +68,8 @@ model MonthlySummary {
   incomeTotal       Float
   spentTotal        Float
   leftTotal         Float
+  aiInsights        String?
+  aiGeneratedAt     DateTime?
   categorySummaries MonthlyCategorySummary[]
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
