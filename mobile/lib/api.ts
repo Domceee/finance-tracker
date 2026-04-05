@@ -11,11 +11,28 @@ export type Transaction = {
   title: string;
   amount: number;
   type: string;
-  category: string;
+  category: TransactionCategory;
   date: string;
   description?: string | null;
   userId: number;
 };
+
+export const TRANSACTION_CATEGORIES = [
+  'FOOD',
+  'SHOPPING',
+  'RENT',
+  'TRANSPORT',
+  'SALARY',
+  'ENTERTAINMENT',
+  'BAR',
+  'EATOUT',
+  'OTHER',
+] as const;
+
+export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number];
+export const EXPENSE_TRANSACTION_CATEGORIES = TRANSACTION_CATEGORIES.filter(
+  (category) => category !== 'SALARY',
+);
 
 export type AuthUser = {
   id: number;
@@ -39,7 +56,7 @@ type CreateTransactionInput = {
   title: string;
   amount: number;
   type: 'expense' | 'income';
-  category: string;
+  category: TransactionCategory;
   date: string;
   description?: string;
 };

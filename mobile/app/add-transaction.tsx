@@ -1,15 +1,28 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, Modal, ScrollView } from 'react-native';
 import { router } from 'expo-router';
-import { createTransaction } from '../lib/api';
+import {
+  createTransaction,
+  EXPENSE_TRANSACTION_CATEGORIES,
+  TransactionCategory,
+} from '../lib/api';
 import { AppPalette } from '../constants/theme';
+
+function formatCategoryLabel(category: TransactionCategory) {
+  if (category === 'EATOUT') {
+    return 'Eat Out';
+  }
+
+  return category.charAt(0) + category.slice(1).toLowerCase();
+}
 
 export default function AddTransactionScreen() {
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'expense' | 'income'>('expense');
-  const [category, setCategory] = useState('');
+  const [category, setCategory] = useState<TransactionCategory>('OTHER');
   const [description, setDescription] = useState('');
+  const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
 
   async function handleSubmit() {
     try {
@@ -17,7 +30,7 @@ export default function AddTransactionScreen() {
         title,
         amount: Number(amount),
         type,
-        category,
+        category: type === 'income' ? 'SALARY' : category,
         date: new Date().toISOString(),
         description,
       });
@@ -52,14 +65,6 @@ export default function AddTransactionScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Category"
-        placeholderTextColor={AppPalette.muted}
-        value={category}
-        onChangeText={setCategory}
-      />
-
-      <TextInput
-        style={styles.input}
         placeholder="Description"
         placeholderTextColor={AppPalette.muted}
         value={description}
@@ -69,20 +74,84 @@ export default function AddTransactionScreen() {
       <View style={styles.typeRow}>
         <Pressable
           style={[styles.typeButton, type === 'expense' && styles.activeButton]}
-          onPress={() => setType('expense')}>
+          onPress={() => {
+            setType('expense');
+
+            if (category === 'SALARY') {
+              setCategory('OTHER');
+            }
+          }}>
           <Text style={styles.typeButtonText}>Expense</Text>
         </Pressable>
 
         <Pressable
           style={[styles.typeButton, type === 'income' && styles.activeButton]}
-          onPress={() => setType('income')}>
+          onPress={() => {
+            setType('income');
+            setCategory('SALARY');
+          }}>
           <Text style={styles.typeButtonText}>Income</Text>
         </Pressable>
       </View>
 
+      {type === 'expense' ? (
+        <Pressable
+          style={styles.input}
+          onPress={() => setIsCategoryModalVisible(true)}>
+          <Text style={styles.categoryLabel}>Category</Text>
+          <Text style={styles.categoryValue}>{formatCategoryLabel(category)}</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.input}>
+          <Text style={styles.categoryLabel}>Category</Text>
+          <Text style={styles.categoryValue}>Salary</Text>
+        </View>
+      )}
+
       <Pressable style={styles.submitButton} onPress={handleSubmit}>
         <Text style={styles.submitButtonText}>Save Transaction</Text>
       </Pressable>
+
+      <Modal
+        visible={isCategoryModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsCategoryModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Choose Category</Text>
+
+            <ScrollView contentContainerStyle={styles.modalList}>
+              {EXPENSE_TRANSACTION_CATEGORIES.map((item) => (
+                <Pressable
+                  key={item}
+                  style={[
+                    styles.categoryOption,
+                    item === category && styles.activeCategoryOption,
+                  ]}
+                  onPress={() => {
+                    setCategory(item);
+                    setIsCategoryModalVisible(false);
+                  }}>
+                  <Text
+                    style={[
+                      styles.categoryOptionText,
+                      item === category && styles.activeCategoryOptionText,
+                    ]}>
+                    {formatCategoryLabel(item)}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <Pressable
+              style={styles.cancelButton}
+              onPress={() => setIsCategoryModalVisible(false)}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -108,6 +177,16 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     color: AppPalette.text,
+  },
+  categoryLabel: {
+    color: AppPalette.accent,
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  categoryValue: {
+    color: AppPalette.text,
+    fontSize: 16,
+    fontWeight: '600',
   },
   typeRow: {
     flexDirection: 'row',
@@ -141,5 +220,59 @@ const styles = StyleSheet.create({
     color: AppPalette.void,
     fontWeight: '700',
     fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(8, 7, 16, 0.88)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: AppPalette.surface,
+    padding: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: '#211C33',
+    maxHeight: '75%',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: AppPalette.text,
+    marginBottom: 16,
+  },
+  modalList: {
+    gap: 10,
+    paddingBottom: 12,
+  },
+  categoryOption: {
+    backgroundColor: AppPalette.elevated,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: AppPalette.muted,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  activeCategoryOption: {
+    backgroundColor: AppPalette.accent,
+    borderColor: AppPalette.accent,
+  },
+  categoryOptionText: {
+    color: AppPalette.text,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  activeCategoryOptionText: {
+    color: AppPalette.void,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    marginTop: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  cancelButtonText: {
+    color: AppPalette.accent,
+    fontWeight: '600',
   },
 });

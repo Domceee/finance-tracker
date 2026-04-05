@@ -11,6 +11,18 @@ datasource db {
   provider = "sqlite"
 }
 
+enum TransactionCategory {
+  FOOD
+  SHOPPING
+  RENT
+  TRANSPORT
+  SALARY
+  ENTERTAINMENT
+  BAR
+  EATOUT
+  OTHER
+}
+
 model User {
   id           Int           @id @default(autoincrement())
   googleId     String?       @unique
@@ -30,7 +42,7 @@ model Transaction {
   title       String
   amount      Float
   type        String
-  category    String
+  category    TransactionCategory
   date        DateTime
   description String?
   userId      Int

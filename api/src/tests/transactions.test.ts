@@ -72,7 +72,7 @@ describe.sequential('Transactions API', () => {
         title: 'Groceries',
         amount: 24.5,
         type: 'expense',
-        category: 'Food',
+        category: 'FOOD',
         date: '2026-04-02T12:00:00.000Z',
         description: 'Weekly shopping',
       });
@@ -82,7 +82,7 @@ describe.sequential('Transactions API', () => {
       title: 'Groceries',
       amount: 24.5,
       type: 'expense',
-      category: 'Food',
+      category: 'FOOD',
       description: 'Weekly shopping',
       userId: user.id,
     });
@@ -94,13 +94,55 @@ describe.sequential('Transactions API', () => {
       title: 'Groceries',
       amount: 24.5,
       type: 'expense',
-      category: 'Food',
+      category: 'FOOD',
       date: '2026-04-02T12:00:00.000Z',
       description: 'Weekly shopping',
     });
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('creates an income transaction with salary category automatically', async () => {
+    const { accessToken, user } = await loginTestUser();
+
+    const response = await request(app)
+      .post('/transactions')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        title: 'Payday',
+        amount: 1200,
+        type: 'income',
+        category: 'OTHER',
+        date: '2026-04-02T12:00:00.000Z',
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      title: 'Payday',
+      amount: 1200,
+      type: 'income',
+      category: 'SALARY',
+      userId: user.id,
+    });
+  });
+
+  it('rejects salary as an expense category', async () => {
+    const { accessToken } = await loginTestUser();
+
+    const response = await request(app)
+      .post('/transactions')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        title: 'Bad expense',
+        amount: 24.5,
+        type: 'expense',
+        category: 'SALARY',
+        date: '2026-04-02T12:00:00.000Z',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid transaction category' });
   });
 
   it('returns only the logged-in user transactions ordered by date descending', async () => {
@@ -112,7 +154,7 @@ describe.sequential('Transactions API', () => {
         title: 'Older transaction',
         amount: 10,
         type: 'expense',
-        category: 'Misc',
+        category: 'OTHER',
         date: new Date('2026-04-01T10:00:00.000Z'),
         userId: user.id,
       },
@@ -123,7 +165,7 @@ describe.sequential('Transactions API', () => {
         title: 'Newer transaction',
         amount: 100,
         type: 'income',
-        category: 'Salary',
+        category: 'SALARY',
         date: new Date('2026-04-03T10:00:00.000Z'),
         userId: user.id,
       },
@@ -134,7 +176,7 @@ describe.sequential('Transactions API', () => {
         title: 'Other user transaction',
         amount: 999,
         type: 'income',
-        category: 'Other',
+        category: 'OTHER',
         date: new Date('2026-04-04T10:00:00.000Z'),
         userId: otherUser.id,
       },
@@ -158,7 +200,7 @@ describe.sequential('Transactions API', () => {
         title: 'Coffee',
         amount: 3.5,
         type: 'expense',
-        category: 'Food',
+        category: 'FOOD',
         date: new Date('2026-04-02T08:00:00.000Z'),
         userId: user.id,
       },
@@ -170,7 +212,7 @@ describe.sequential('Transactions API', () => {
       .send({
         title: 'Coffee beans',
         amount: 8.99,
-        category: 'Groceries',
+        category: 'SHOPPING',
       });
 
     expect(response.status).toBe(200);
@@ -179,7 +221,7 @@ describe.sequential('Transactions API', () => {
       title: 'Coffee beans',
       amount: 8.99,
       type: 'expense',
-      category: 'Groceries',
+      category: 'SHOPPING',
       userId: user.id,
     });
   });
@@ -193,6 +235,61 @@ describe.sequential('Transactions API', () => {
     expect(response.body).toEqual({ error: 'Unauthorized' });
   });
 
+  it('updates the category to salary automatically when type changes to income', async () => {
+    const { accessToken, user } = await loginTestUser();
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        title: 'Freelance',
+        amount: 150,
+        type: 'expense',
+        category: 'SHOPPING',
+        date: new Date('2026-04-02T08:00:00.000Z'),
+        userId: user.id,
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/transactions/${transaction.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        type: 'income',
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      id: transaction.id,
+      type: 'income',
+      category: 'SALARY',
+      userId: user.id,
+    });
+  });
+
+  it('rejects salary when updating an expense category', async () => {
+    const { accessToken, user } = await loginTestUser();
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        title: 'Dinner',
+        amount: 30,
+        type: 'expense',
+        category: 'EATOUT',
+        date: new Date('2026-04-02T08:00:00.000Z'),
+        userId: user.id,
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/transactions/${transaction.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        category: 'SALARY',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid transaction category' });
+  });
+
   it('deletes a transaction owned by the logged-in user', async () => {
     const { accessToken, user } = await loginTestUser();
 
@@ -201,7 +298,7 @@ describe.sequential('Transactions API', () => {
         title: 'Bus ticket',
         amount: 2.5,
         type: 'expense',
-        category: 'Transport',
+        category: 'TRANSPORT',
         date: new Date('2026-04-02T09:00:00.000Z'),
         userId: user.id,
       },

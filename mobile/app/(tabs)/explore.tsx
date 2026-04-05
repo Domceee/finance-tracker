@@ -1,8 +1,16 @@
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { getTransactions, Transaction } from '@/lib/api'; 
+import { getTransactions, Transaction, TransactionCategory } from '@/lib/api';
 import { AppPalette } from '../../constants/theme';
+
+function formatCategoryLabel(category: TransactionCategory) {
+  if (category === 'EATOUT') {
+    return 'Eat Out';
+  }
+
+  return category.charAt(0) + category.slice(1).toLowerCase();
+}
 
 export default function TransactionsScreen() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -21,7 +29,7 @@ export default function TransactionsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadTransactions();
-    }, [loadTransactions])
+    }, [loadTransactions]),
   );
 
   if (isLoading) {
@@ -29,7 +37,7 @@ export default function TransactionsScreen() {
       <View style={styles.container}>
         <ActivityIndicator size="large" color={AppPalette.accent} />
       </View>
-    )
+    );
   }
 
   return (
@@ -50,18 +58,16 @@ export default function TransactionsScreen() {
             <View>
               <Text style={styles.itemTitle}>{item.title}</Text>
               <Text style={styles.itemSubtitle}>
-                {item.category} • {new Date(item.date).toLocaleDateString()}
+                {formatCategoryLabel(item.category)} • {new Date(item.date).toLocaleDateString()}
               </Text>
             </View>
 
             <Text style={item.amount >= 0 ? styles.income : styles.expense}>
-              {item.amount >= 0 ? '+' : '-'}€{Math.abs(item.amount).toFixed(2)}
+              {item.amount >= 0 ? '+' : '-'}EUR{Math.abs(item.amount).toFixed(2)}
             </Text>
           </Pressable>
         )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No transactions yet.</Text>
-        }
+        ListEmptyComponent={<Text style={styles.emptyText}>No transactions yet.</Text>}
       />
     </View>
   );
