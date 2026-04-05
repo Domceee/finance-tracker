@@ -163,4 +163,132 @@ describe.sequential('Overview API', () => {
       { category: 'EATOUT', amount: 50, percentage: 25 },
     ]);
   });
+
+  it('creates a snapshot when requesting a past month without one', async () => {
+    const { accessToken, user } = await loginTestUser();
+
+    await prisma.transaction.createMany({
+      data: [
+        {
+          title: 'Salary',
+          amount: 900,
+          type: 'income',
+          category: 'SALARY',
+          date: new Date('2026-02-02T12:00:00.000Z'),
+          userId: user.id,
+        },
+        {
+          title: 'Rent',
+          amount: 400,
+          type: 'expense',
+          category: 'RENT',
+          date: new Date('2026-02-05T12:00:00.000Z'),
+          userId: user.id,
+        },
+      ],
+    });
+
+    const response = await request(app)
+      .get('/overview?year=2026&month=2')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+
+    const snapshot = await prisma.monthlySummary.findUnique({
+      where: {
+        userId_year_month: {
+          userId: user.id,
+          year: 2026,
+          month: 2,
+        },
+      },
+      include: {
+        categorySummaries: true,
+      },
+    });
+
+    expect(snapshot).not.toBeNull();
+    expect(snapshot).toMatchObject({
+      incomeTotal: 900,
+      spentTotal: 400,
+      leftTotal: 500,
+    });
+    expect(snapshot?.categorySummaries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'RENT',
+          amount: 400,
+        }),
+      ]),
+    );
+  });
+
+  it('returns an existing snapshot for a past month', async () => {
+    const { accessToken, user } = await loginTestUser();
+
+    const snapshot = await prisma.monthlySummary.create({
+      data: {
+        userId: user.id,
+        year: 2026,
+        month: 1,
+        incomeTotal: 2000,
+        spentTotal: 500,
+        leftTotal: 1500,
+        categorySummaries: {
+          create: [
+            {
+              category: 'FOOD',
+              amount: 300,
+            },
+            {
+              category: 'EATOUT',
+              amount: 200,
+            },
+          ],
+        },
+      },
+      include: {
+        categorySummaries: true,
+      },
+    });
+
+    await prisma.transaction.create({
+      data: {
+        title: 'Should be ignored',
+        amount: 999,
+        type: 'expense',
+        category: 'OTHER',
+        date: new Date('2026-01-10T12:00:00.000Z'),
+        userId: user.id,
+      },
+    });
+
+    const response = await request(app)
+      .get('/overview?year=2026&month=1')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      year: 2026,
+      month: 1,
+      incomeTotal: 2000,
+      spentTotal: 500,
+      leftTotal: 1500,
+      categoryBreakdown: [
+        { category: 'FOOD', amount: 300, percentage: 60 },
+        { category: 'EATOUT', amount: 200, percentage: 40 },
+      ],
+    });
+
+    const summaryCount = await prisma.monthlySummary.count({
+      where: {
+        userId: user.id,
+        year: 2026,
+        month: 1,
+      },
+    });
+
+    expect(summaryCount).toBe(1);
+    expect(snapshot.id).toBeDefined();
+  });
 });

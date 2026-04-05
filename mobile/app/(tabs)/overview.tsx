@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { AppPalette } from '../../constants/theme';
@@ -21,6 +21,36 @@ const CHART_COLORS: Record<TransactionCategory, string> = {
   EATOUT: '#22D3EE',
   OTHER: '#94A3B8',
 };
+
+type MonthSelection = {
+  year: number;
+  month: number;
+};
+
+function getCurrentMonthSelection(): MonthSelection {
+  const now = new Date();
+
+  return {
+    year: now.getUTCFullYear(),
+    month: now.getUTCMonth() + 1,
+  };
+}
+
+function getPreviousMonth(selection: MonthSelection): MonthSelection {
+  if (selection.month === 1) {
+    return { year: selection.year - 1, month: 12 };
+  }
+
+  return { year: selection.year, month: selection.month - 1 };
+}
+
+function getNextMonth(selection: MonthSelection): MonthSelection {
+  if (selection.month === 12) {
+    return { year: selection.year + 1, month: 1 };
+  }
+
+  return { year: selection.year, month: selection.month + 1 };
+}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IE', {
@@ -142,6 +172,8 @@ function SpendingPieChart({ data }: { data: OverviewCategoryBreakdown[] }) {
 
 export default function OverviewScreen() {
   const isFocused = useIsFocused();
+  const currentMonth = getCurrentMonthSelection();
+  const [selectedMonth, setSelectedMonth] = useState<MonthSelection>(currentMonth);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -150,8 +182,7 @@ export default function OverviewScreen() {
       setIsLoading(true);
 
       try {
-        const now = new Date();
-        const data = await getOverview(now.getUTCFullYear(), now.getUTCMonth() + 1);
+        const data = await getOverview(selectedMonth.year, selectedMonth.month);
         setOverview(data);
       } catch (error) {
         console.error('Failed to load overview', error);
@@ -163,18 +194,44 @@ export default function OverviewScreen() {
     if (isFocused) {
       loadOverview();
     }
-  }, [isFocused]);
+  }, [isFocused, selectedMonth.month, selectedMonth.year]);
 
-  const monthLabel = overview ? getMonthLabel(overview.year, overview.month) : 'Current month';
+  const monthLabel = overview
+    ? getMonthLabel(overview.year, overview.month)
+    : getMonthLabel(selectedMonth.year, selectedMonth.month);
   const categoryData = overview?.categoryBreakdown ?? [];
   const income = overview?.incomeTotal ?? 0;
   const spent = overview?.spentTotal ?? 0;
   const left = overview?.leftTotal ?? 0;
+  const isViewingCurrentMonth =
+    selectedMonth.year === currentMonth.year && selectedMonth.month === currentMonth.month;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Overview</Text>
-      <Text style={styles.subtitle}>{monthLabel} summary</Text>
+
+      <View style={styles.monthSwitcher}>
+        <Pressable
+          style={styles.monthButton}
+          onPress={() => setSelectedMonth((current) => getPreviousMonth(current))}>
+          <Text style={styles.monthButtonText}>Prev</Text>
+        </Pressable>
+
+        <Text style={styles.subtitle}>{monthLabel} summary</Text>
+
+        <Pressable
+          style={[styles.monthButton, isViewingCurrentMonth && styles.monthButtonDisabled]}
+          disabled={isViewingCurrentMonth}
+          onPress={() => setSelectedMonth((current) => getNextMonth(current))}>
+          <Text
+            style={[
+              styles.monthButtonText,
+              isViewingCurrentMonth && styles.monthButtonTextDisabled,
+            ]}>
+            Next
+          </Text>
+        </Pressable>
+      </View>
 
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
@@ -198,12 +255,12 @@ export default function OverviewScreen() {
         {isLoading ? (
           <ActivityIndicator size="large" color={AppPalette.accent} />
         ) : categoryData.length === 0 ? (
-          <Text style={styles.emptyText}>No expense transactions for this month yet.</Text>
+          <Text style={styles.emptyText}>No expense transactions for this month.</Text>
         ) : (
           <>
             <SpendingPieChart data={categoryData} />
 
-            {categoryData.map((item: OverviewCategoryBreakdown) => (
+            {categoryData.map((item) => (
               <View key={item.category} style={styles.categoryRow}>
                 <View style={styles.categoryInfo}>
                   <View
@@ -242,11 +299,39 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: AppPalette.text,
   },
-  subtitle: {
-    fontSize: 16,
-    color: AppPalette.accent,
+  monthSwitcher: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
     marginTop: 4,
     marginBottom: 20,
+  },
+  monthButton: {
+    minWidth: 62,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: AppPalette.surface,
+    borderWidth: 1,
+    borderColor: AppPalette.muted,
+    alignItems: 'center',
+  },
+  monthButtonDisabled: {
+    opacity: 0.45,
+  },
+  monthButtonText: {
+    color: AppPalette.text,
+    fontWeight: '700',
+  },
+  monthButtonTextDisabled: {
+    color: AppPalette.muted,
+  },
+  subtitle: {
+    flex: 1,
+    fontSize: 16,
+    color: AppPalette.accent,
+    textAlign: 'center',
   },
   summaryRow: {
     flexDirection: 'row',
