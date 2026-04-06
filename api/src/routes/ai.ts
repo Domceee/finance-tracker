@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createHash } from 'crypto';
 import { GoogleGenAI } from '@google/genai';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -15,9 +16,14 @@ const router = Router();
 const apiKey = process.env.GEMINI_API_KEY;
 const model = GEMINI_MODEL;
 
-function isCurrentMonth(year: number, month: number) {
-  const now = new Date();
-  return year === now.getUTCFullYear() && month === now.getUTCMonth() + 1;
+function hashOverviewData(overview: OverviewData): string {
+  const stable = JSON.stringify({
+    income: overview.incomeTotal,
+    spent: overview.spentTotal,
+    categories: [...overview.categoryBreakdown]
+      .sort((a, b) => a.category.localeCompare(b.category)),
+  });
+  return createHash('sha256').update(stable).digest('hex');
 }
 
 router.post('/ask', requireAuth, async (req, res) => {
@@ -59,26 +65,19 @@ router.post('/overview-insights', requireAuth, async (req, res) => {
   }
 
   const { year, month } = parsed;
-  const currentMonth = isCurrentMonth(year, month);
 
   try {
     const existingSummary = await prisma.monthlySummary.findUnique({
-      where: {
-        userId_year_month: {
-          userId,
-          year,
-          month,
-        },
-      },
-      select: {
-        aiInsights: true,
-        aiGeneratedAt: true,
-      },
+      where: { userId_year_month: { userId, year, month } },
+      select: { aiInsights: true, aiGeneratedAt: true, aiDataHash: true },
     });
 
+    const overview = await getOverviewForMonth(userId, year, month);
+    const dataHash = hashOverviewData(overview);
     const cachedInsights = parseOverviewInsights(existingSummary?.aiInsights ?? null);
 
-    if (!currentMonth && cachedInsights) {
+    // Return cache if: past month with any cache, OR current month where data hasn't changed
+    if (cachedInsights && existingSummary?.aiDataHash === dataHash) {
       return res.json({
         insights: cachedInsights,
         cached: true,
@@ -86,21 +85,31 @@ router.post('/overview-insights', requireAuth, async (req, res) => {
       });
     }
 
-    const overview = await getOverviewForMonth(userId, year, month);
     const insights = await generateOverviewInsights(apiKey, overview);
 
-    if (!currentMonth) {
-      await prisma.monthlySummary.update({
-        where: {
-          userId_year_month: {
-            userId,
-            year,
-            month,
-          },
-        },
+    const aiData = {
+      aiInsights: stringifyOverviewInsights(insights),
+      aiGeneratedAt: new Date(),
+      aiDataHash: dataHash,
+    };
+
+    // Use updateMany (no P2025) then create if no row existed yet.
+    // Current month never has a MonthlySummary row until we create it here.
+    const { count } = await prisma.monthlySummary.updateMany({
+      where: { userId, year, month },
+      data: aiData,
+    });
+
+    if (count === 0) {
+      await prisma.monthlySummary.create({
         data: {
-          aiInsights: stringifyOverviewInsights(insights),
-          aiGeneratedAt: new Date(),
+          userId,
+          year,
+          month,
+          incomeTotal: overview.incomeTotal,
+          spentTotal: overview.spentTotal,
+          leftTotal: overview.incomeTotal - overview.spentTotal,
+          ...aiData,
         },
       });
     }

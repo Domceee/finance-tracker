@@ -26,16 +26,6 @@ vi.mock('../lib/insights.js', async (importOriginal) => {
 import app from '../app.js';
 import prisma from '../prisma.js';
 
-async function createTestUser() {
-  return prisma.user.create({
-    data: {
-      email: `ai-${Date.now()}-${Math.random()}@example.com`,
-      googleId: `dev-ai-${Date.now()}-${Math.random()}`,
-      name: 'AI User',
-    },
-  });
-}
-
 async function loginTestUser() {
   const email = `ai-login-${Date.now()}-${Math.random()}@example.com`;
 
@@ -142,15 +132,17 @@ describe.sequential('AI API', () => {
         userId: user.id,
         year: 2026,
         month: 1,
-        incomeTotal: 1000,
-        spentTotal: 400,
-        leftTotal: 600,
+        incomeTotal: 0,
+        spentTotal: 0,
+        leftTotal: 0,
         aiInsights: JSON.stringify({
           summary: 'Cached summary',
           warning: 'Cached warning',
           tip: 'Cached tip',
         }),
         aiGeneratedAt: new Date('2026-02-01T12:00:00.000Z'),
+        // hash of { income: 0, spent: 0, categories: [] } — matches an empty month
+        aiDataHash: '3d96e65ea32a00158030b80006397f2ed36e6dd51e2a343ec08ddb80bdc780f8',
       },
     });
 

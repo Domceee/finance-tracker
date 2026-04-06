@@ -70,6 +70,7 @@ model MonthlySummary {
   leftTotal         Float
   aiInsights        String?
   aiGeneratedAt     DateTime?
+  aiDataHash        String?
   categorySummaries MonthlyCategorySummary[]
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
