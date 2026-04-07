@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -9,35 +11,65 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/auth-provider';
-import { changePassword } from '../../lib/api';
+import { changePassword, updateProfile } from '../../lib/api';
 import { AppPalette } from '../../constants/theme';
 
-function AvatarCircle({ name, email }: { name: string | null; email: string }) {
+const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+
+async function uploadToCloudinary(uri: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', { uri, type: 'image/jpeg', name: 'avatar.jpg' } as any);
+  form.append('upload_preset', UPLOAD_PRESET);
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    { method: 'POST', body: form },
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to upload image');
+  }
+
+  const data = await response.json();
+  return data.secure_url as string;
+}
+
+function Avatar({ name, email, avatarUrl, onPress, isUploading }: {
+  name: string | null;
+  email: string;
+  avatarUrl?: string | null;
+  onPress: () => void;
+  isUploading: boolean;
+}) {
   const initials = name
-    ? name
-        .trim()
-        .split(' ')
-        .map((part) => part[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
+    ? name.trim().split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
     : (email[0] ?? '?').toUpperCase();
 
   return (
-    <View style={styles.avatar}>
-      <Text style={styles.avatarText}>{initials}</Text>
-    </View>
+    <Pressable onPress={onPress} style={styles.avatarWrapper}>
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+      ) : (
+        <View style={styles.avatarFallback}>
+          <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+      )}
+      {isUploading && (
+        <View style={styles.avatarOverlay}>
+          <ActivityIndicator color={AppPalette.text} />
+        </View>
+      )}
+      <View style={styles.avatarBadge}>
+        <Text style={styles.avatarBadgeText}>✎</Text>
+      </View>
+    </Pressable>
   );
 }
 
-function ChangePasswordModal({
-  visible,
-  onClose,
-}: {
-  visible: boolean;
-  onClose: () => void;
-}) {
+function ChangePasswordModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -136,12 +168,46 @@ function ChangePasswordModal({
 }
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   if (!user) {
     return null;
+  }
+
+  async function handlePickAvatar() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow access to your photo library to set a profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const uri = result.assets[0].uri;
+      const cloudUrl = await uploadToCloudinary(uri);
+      await updateProfile(cloudUrl);
+      updateUser({ avatarUrl: cloudUrl });
+    } catch (err) {
+      Alert.alert('Upload failed', err instanceof Error ? err.message : 'Could not upload image.');
+    } finally {
+      setIsUploading(false);
+    }
   }
 
   async function handleLogout() {
@@ -158,9 +224,15 @@ export default function ProfileScreen() {
       <Text style={styles.title}>Profile</Text>
 
       <View style={styles.profileCard}>
-        <AvatarCircle name={user?.name ?? null} email={user?.email ?? ''} />
-        <Text style={styles.name}>{user?.name ?? 'No name set'}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
+        <Avatar
+          name={user.name}
+          email={user.email}
+          avatarUrl={user.avatarUrl}
+          onPress={handlePickAvatar}
+          isUploading={isUploading}
+        />
+        <Text style={styles.name}>{user.name ?? 'No name set'}</Text>
+        <Text style={styles.email}>{user.email}</Text>
       </View>
 
       <View style={styles.section}>
@@ -172,7 +244,9 @@ export default function ProfileScreen() {
           style={[styles.dangerButton, isLoggingOut && styles.buttonDisabled]}
           onPress={handleLogout}
           disabled={isLoggingOut}>
-          <Text style={styles.dangerButtonText}>{isLoggingOut ? 'Signing out...' : 'Sign Out'}</Text>
+          <Text style={styles.dangerButtonText}>
+            {isLoggingOut ? 'Signing out...' : 'Sign Out'}
+          </Text>
         </Pressable>
       </View>
 
@@ -209,7 +283,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  avatar: {
+  avatarWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 16,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: AppPalette.muted,
+  },
+  avatarFallback: {
     width: 80,
     height: 80,
     borderRadius: 40,
@@ -218,12 +305,34 @@ const styles = StyleSheet.create({
     borderColor: AppPalette.muted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
   },
   avatarText: {
     fontSize: 28,
     fontWeight: '700',
     color: AppPalette.text,
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: AppPalette.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarBadgeText: {
+    color: AppPalette.void,
+    fontSize: 12,
+    fontWeight: '700',
   },
   name: {
     fontSize: 20,

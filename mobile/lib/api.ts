@@ -228,6 +228,19 @@ export async function getOverview(year?: number, month?: number): Promise<Overvi
   return response.json();
 }
 
+export async function updateProfile(avatarUrl: string | null): Promise<AuthUser> {
+  const response = await apiFetch('/auth/profile', {
+    method: 'PATCH',
+    body: JSON.stringify({ avatarUrl }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to update profile'));
+  }
+
+  return response.json();
+}
+
 export async function forgotPassword(email: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
     method: 'POST',

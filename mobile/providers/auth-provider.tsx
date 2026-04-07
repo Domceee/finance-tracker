@@ -23,6 +23,7 @@ type AuthContextValue = {
   register: (email: string, password: string, name?: string) => Promise<string>;
   verifyEmail: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (partial: Partial<AuthUser>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -105,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register: registerUser,
         verifyEmail: verifyEmailCode,
         logout,
+        updateUser: (partial) => setUser((prev) => prev ? { ...prev, ...partial } : prev),
       }}>
       {children}
     </AuthContext.Provider>

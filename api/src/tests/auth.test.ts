@@ -606,7 +606,7 @@ describe.sequential('Auth API', () => {
       .send({ email: 'nobody@example.com' });
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ message: 'If that email exists, a reset code has been sent' });
+    expect(response.body).toEqual({ message: 'A reset code has been sent to recipient' });
   });
 
   it('POST /auth/forgot-password returns success for an unverified user', async () => {
@@ -617,7 +617,7 @@ describe.sequential('Auth API', () => {
       .send({ email: 'unverified-forgot@example.com' });
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ message: 'If that email exists, a reset code has been sent' });
+    expect(response.body).toEqual({ message: 'A reset code has been sent to recipient' });
   });
 
   it('POST /auth/forgot-password sends a reset code for a verified user', async () => {

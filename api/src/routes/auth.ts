@@ -275,6 +275,42 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
+router.patch('/profile', async (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const token = authHeader.slice('Bearer '.length);
+  let userId: number;
+
+  try {
+    const payload = verifyAccessToken(token);
+    userId = payload.userId;
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { avatarUrl } = req.body;
+
+  if (avatarUrl !== undefined && typeof avatarUrl !== 'string') {
+    return res.status(400).json({ error: 'avatarUrl must be a string' });
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl: avatarUrl ?? null },
+  });
+
+  return res.status(200).json({
+    id: updated.id,
+    email: updated.email,
+    name: updated.name,
+    avatarUrl: updated.avatarUrl,
+  });
+});
+
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
 
