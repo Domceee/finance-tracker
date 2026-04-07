@@ -3,15 +3,17 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 
 vi.mock('../lib/mail.js', () => ({
   sendVerificationEmail: vi.fn().mockResolvedValue(undefined),
+  sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 import app from '../app.js';
-import { signRefreshToken } from '../lib/jwt.js';
-import { sendVerificationEmail } from '../lib/mail.js';
+import { signAccessToken, signRefreshToken } from '../lib/jwt.js';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../lib/mail.js';
 import { hashPassword } from '../lib/password.js';
 import prisma from '../prisma.js';
 
 const mockedSendVerificationEmail = vi.mocked(sendVerificationEmail);
+const mockedSendPasswordResetEmail = vi.mocked(sendPasswordResetEmail);
 
 async function createVerifiedUser(email?: string) {
   const uniqueEmail = email ?? `verified-${Date.now()}-${Math.random()}@example.com`;
@@ -589,5 +591,299 @@ describe.sequential('Auth API', () => {
     });
 
     expect(response.status).toBe(204);
+  });
+
+  it('POST /auth/forgot-password rejects missing email', async () => {
+    const response = await request(app).post('/auth/forgot-password').send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Email is required' });
+  });
+
+  it('POST /auth/forgot-password returns success for an unknown email', async () => {
+    const response = await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: 'nobody@example.com' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ message: 'If that email exists, a reset code has been sent' });
+  });
+
+  it('POST /auth/forgot-password returns success for an unverified user', async () => {
+    await createUnverifiedUser({ email: 'unverified-forgot@example.com' });
+
+    const response = await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: 'unverified-forgot@example.com' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ message: 'If that email exists, a reset code has been sent' });
+  });
+
+  it('POST /auth/forgot-password sends a reset code for a verified user', async () => {
+    await createVerifiedUser('forgot-sends@example.com');
+
+    await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: 'forgot-sends@example.com' });
+
+    expect(mockedSendPasswordResetEmail).toHaveBeenCalledTimes(1);
+    expect(mockedSendPasswordResetEmail).toHaveBeenCalledWith(
+      'forgot-sends@example.com',
+      expect.any(String),
+    );
+  });
+
+  it('POST /auth/forgot-password stores a reset code for a verified user', async () => {
+    const user = await createVerifiedUser('forgot-stores@example.com');
+
+    await request(app)
+      .post('/auth/forgot-password')
+      .send({ email: 'forgot-stores@example.com' });
+
+    const updated = await prisma.user.findUnique({ where: { id: user.id } });
+
+    expect(updated?.verificationCode).toEqual(expect.any(String));
+    expect(updated?.verificationExpiresAt).toBeInstanceOf(Date);
+  });
+
+  it('POST /auth/reset-password rejects missing email', async () => {
+    const response = await request(app)
+      .post('/auth/reset-password')
+      .send({ code: '123456', newPassword: 'newpassword123' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Email is required' });
+  });
+
+  it('POST /auth/reset-password rejects missing code', async () => {
+    const response = await request(app)
+      .post('/auth/reset-password')
+      .send({ email: 'user@example.com', newPassword: 'newpassword123' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Reset code is required' });
+  });
+
+  it('POST /auth/reset-password rejects a short new password', async () => {
+    const response = await request(app)
+      .post('/auth/reset-password')
+      .send({ email: 'user@example.com', code: '123456', newPassword: '123' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Password must be at least 6 characters long' });
+  });
+
+  it('POST /auth/reset-password rejects an unknown or unverified email', async () => {
+    const response = await request(app)
+      .post('/auth/reset-password')
+      .send({ email: 'nobody@example.com', code: '123456', newPassword: 'newpassword123' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid or expired reset code' });
+  });
+
+  it('POST /auth/reset-password rejects an expired code', async () => {
+    await createVerifiedUser('reset-expired@example.com');
+    await prisma.user.update({
+      where: { email: 'reset-expired@example.com' },
+      data: {
+        verificationCode: '123456',
+        verificationExpiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+
+    const response = await request(app).post('/auth/reset-password').send({
+      email: 'reset-expired@example.com',
+      code: '123456',
+      newPassword: 'newpassword123',
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid or expired reset code' });
+  });
+
+  it('POST /auth/reset-password rejects a wrong code', async () => {
+    await createVerifiedUser('reset-wrong-code@example.com');
+    await prisma.user.update({
+      where: { email: 'reset-wrong-code@example.com' },
+      data: {
+        verificationCode: '123456',
+        verificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    const response = await request(app).post('/auth/reset-password').send({
+      email: 'reset-wrong-code@example.com',
+      code: '654321',
+      newPassword: 'newpassword123',
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid or expired reset code' });
+  });
+
+  it('POST /auth/reset-password succeeds with a valid code', async () => {
+    await createVerifiedUser('reset-success@example.com');
+    await prisma.user.update({
+      where: { email: 'reset-success@example.com' },
+      data: {
+        verificationCode: '123456',
+        verificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    const response = await request(app).post('/auth/reset-password').send({
+      email: 'reset-success@example.com',
+      code: '123456',
+      newPassword: 'newpassword123',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ message: 'Password reset successfully' });
+  });
+
+  it('POST /auth/reset-password updates the password and clears the code', async () => {
+    await createVerifiedUser('reset-updates@example.com');
+    await prisma.user.update({
+      where: { email: 'reset-updates@example.com' },
+      data: {
+        verificationCode: '123456',
+        verificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    await request(app).post('/auth/reset-password').send({
+      email: 'reset-updates@example.com',
+      code: '123456',
+      newPassword: 'newpassword123',
+    });
+
+    const loginWithNew = await request(app).post('/auth/login').send({
+      email: 'reset-updates@example.com',
+      password: 'newpassword123',
+    });
+
+    const loginWithOld = await request(app).post('/auth/login').send({
+      email: 'reset-updates@example.com',
+      password: 'password123',
+    });
+
+    const user = await prisma.user.findUnique({ where: { email: 'reset-updates@example.com' } });
+
+    expect(loginWithNew.status).toBe(200);
+    expect(loginWithOld.status).toBe(401);
+    expect(user?.verificationCode).toBeNull();
+    expect(user?.verificationExpiresAt).toBeNull();
+  });
+
+  it('POST /auth/change-password rejects missing auth token', async () => {
+    const response = await request(app).post('/auth/change-password').send({
+      currentPassword: 'password123',
+      newPassword: 'newpassword123',
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('POST /auth/change-password rejects an invalid auth token', async () => {
+    const response = await request(app)
+      .post('/auth/change-password')
+      .set('Authorization', 'Bearer not-a-valid-token')
+      .send({
+        currentPassword: 'password123',
+        newPassword: 'newpassword123',
+      });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Invalid or expired token' });
+  });
+
+  it('POST /auth/change-password rejects missing currentPassword', async () => {
+    await createVerifiedUser('change-pwd-missing-current@example.com');
+    const { body } = await request(app).post('/auth/login').send({
+      email: 'change-pwd-missing-current@example.com',
+      password: 'password123',
+    });
+
+    const response = await request(app)
+      .post('/auth/change-password')
+      .set('Authorization', `Bearer ${body.accessToken}`)
+      .send({ newPassword: 'newpassword123' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Current password is required' });
+  });
+
+  it('POST /auth/change-password rejects a short newPassword', async () => {
+    await createVerifiedUser('change-pwd-short-new@example.com');
+    const { body } = await request(app).post('/auth/login').send({
+      email: 'change-pwd-short-new@example.com',
+      password: 'password123',
+    });
+
+    const response = await request(app)
+      .post('/auth/change-password')
+      .set('Authorization', `Bearer ${body.accessToken}`)
+      .send({ currentPassword: 'password123', newPassword: '123' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'New password must be at least 6 characters long' });
+  });
+
+  it('POST /auth/change-password rejects a wrong currentPassword', async () => {
+    await createVerifiedUser('change-pwd-wrong-current@example.com');
+    const { body } = await request(app).post('/auth/login').send({
+      email: 'change-pwd-wrong-current@example.com',
+      password: 'password123',
+    });
+
+    const response = await request(app)
+      .post('/auth/change-password')
+      .set('Authorization', `Bearer ${body.accessToken}`)
+      .send({ currentPassword: 'wrong-password', newPassword: 'newpassword123' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Current password is incorrect' });
+  });
+
+  it('POST /auth/change-password succeeds with correct credentials', async () => {
+    await createVerifiedUser('change-pwd-success@example.com');
+    const { body } = await request(app).post('/auth/login').send({
+      email: 'change-pwd-success@example.com',
+      password: 'password123',
+    });
+
+    const response = await request(app)
+      .post('/auth/change-password')
+      .set('Authorization', `Bearer ${body.accessToken}`)
+      .send({ currentPassword: 'password123', newPassword: 'newpassword123' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ message: 'Password updated successfully' });
+  });
+
+  it('POST /auth/change-password updates the stored password hash', async () => {
+    const user = await createVerifiedUser('change-pwd-hash@example.com');
+    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+
+    await request(app)
+      .post('/auth/change-password')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ currentPassword: 'password123', newPassword: 'newpassword123' });
+
+    const loginWithOld = await request(app).post('/auth/login').send({
+      email: 'change-pwd-hash@example.com',
+      password: 'password123',
+    });
+
+    const loginWithNew = await request(app).post('/auth/login').send({
+      email: 'change-pwd-hash@example.com',
+      password: 'newpassword123',
+    });
+
+    expect(loginWithOld.status).toBe(401);
+    expect(loginWithNew.status).toBe(200);
   });
 });

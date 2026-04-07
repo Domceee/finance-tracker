@@ -20,6 +20,7 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'creditcard.fill': 'credit-card',
   'chart.bar.fill': 'bar-chart',
+  'person.fill': 'person',
 } as IconMapping;
 
 /**

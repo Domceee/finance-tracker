@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import prisma from '../prisma.js';
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/jwt.js';
+import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from '../lib/jwt.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
-import { sendVerificationEmail } from '../lib/mail.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mail.js';
 
 const router = Router();
 const VERIFICATION_CODE_LENGTH = 6;
@@ -273,6 +273,120 @@ router.post('/refresh', async (req, res) => {
   } catch {
     return res.status(401).json({ error: 'Invalid refresh token' });
   }
+});
+
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+  if (!user?.isVerified) {
+    return res.status(200).json({ message: 'A reset code has been sent to recipient' });
+  }
+
+  const resetCode = generateVerificationCode();
+  const resetExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_MS);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { verificationCode: resetCode, verificationExpiresAt: resetExpiresAt },
+  });
+
+  await sendPasswordResetEmail(normalizedEmail, resetCode);
+
+  return res.status(200).json({ message: 'A reset code has been sent to recipient' });
+});
+
+router.post('/reset-password', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'Reset code is required' });
+  }
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+  if (!user?.isVerified) {
+    return res.status(400).json({ error: 'Invalid or expired reset code' });
+  }
+
+  if (!user.verificationCode || !user.verificationExpiresAt) {
+    return res.status(400).json({ error: 'Invalid or expired reset code' });
+  }
+
+  if (user.verificationExpiresAt < new Date()) {
+    return res.status(400).json({ error: 'Invalid or expired reset code' });
+  }
+
+  if (user.verificationCode !== code.trim()) {
+    return res.status(400).json({ error: 'Invalid or expired reset code' });
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash: hashPassword(newPassword),
+      verificationCode: null,
+      verificationExpiresAt: null,
+    },
+  });
+
+  return res.status(200).json({ message: 'Password reset successfully' });
+});
+
+router.post('/change-password', async (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const token = authHeader.slice('Bearer '.length);
+  let userId: number;
+
+  try {
+    const payload = verifyAccessToken(token);
+    userId = payload.userId;
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || typeof currentPassword !== 'string') {
+    return res.status(400).json({ error: 'Current password is required' });
+  }
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user?.passwordHash || !verifyPassword(currentPassword, user.passwordHash)) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: hashPassword(newPassword) },
+  });
+
+  return res.status(200).json({ message: 'Password updated successfully' });
 });
 
 router.post('/logout', async (req, res) => {

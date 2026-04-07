@@ -22,13 +22,11 @@ async function sendWithSmtp(to: string, subject: string, text: string, html: str
     },
   });
 
-  await transporter.sendMail({
-    from: mailFrom,
-    to,
-    subject,
-    text,
-    html,
-  });
+  try {
+    await transporter.sendMail({ from: mailFrom, to, subject, text, html });
+  } catch (err) {
+    throw err;
+  }
 }
 
 export async function sendVerificationEmail(email: string, code: string) {
@@ -46,6 +44,28 @@ export async function sendVerificationEmail(email: string, code: string) {
   if (!hasMailConfig()) {
     console.warn('MAIL_* variables are not configured. Falling back to console output for verification codes.');
     console.log(`Verification code for ${email}: ${code}`);
+    return;
+  }
+
+  await sendWithSmtp(email, subject, text, html);
+}
+
+export async function sendPasswordResetEmail(email: string, code: string) {
+  const subject = 'Reset your password';
+  const text = `Your password reset code is ${code}. It expires in 10 minutes. If you did not request this, ignore this email.`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+      <h2>Reset your password</h2>
+      <p>Use this code to reset your password:</p>
+      <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">${code}</p>
+      <p>This code expires in 10 minutes.</p>
+      <p style="color: #888; font-size: 13px;">If you did not request a password reset, you can safely ignore this email.</p>
+    </div>
+  `;
+
+  if (!hasMailConfig()) {
+    console.warn('MAIL_* variables are not configured. Falling back to console output for reset codes.');
+    console.log(`Password reset code for ${email}: ${code}`);
     return;
   }
 

@@ -58,10 +58,6 @@ export default function DashboardScreen() {
             <Text style={styles.greeting}>Hello, {user?.name ?? user?.email ?? 'there'}</Text>
             <Text style={styles.subtitle}>Your finance overview</Text>
           </View>
-
-          <Pressable style={styles.logoutButton} onPress={logout}>
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </Pressable>
         </View>
       </View>
 

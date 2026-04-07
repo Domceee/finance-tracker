@@ -228,6 +228,41 @@ export async function getOverview(year?: number, month?: number): Promise<Overvi
   return response.json();
 }
 
+export async function forgotPassword(email: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to send reset code'));
+  }
+}
+
+export async function resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, newPassword }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to reset password'));
+  }
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const response = await apiFetch('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to change password'));
+  }
+}
+
 export async function getOverviewInsights(
   year: number,
   month: number,

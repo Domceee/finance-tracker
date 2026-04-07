@@ -58,6 +58,12 @@ export default function LoginScreen() {
 
         <Pressable
           style={styles.secondaryButton}
+          onPress={() => router.push('/forgot-password')}>
+          <Text style={styles.secondaryButtonText}>Forgot password?</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.secondaryButton}
           onPress={() => router.push('/register')}>
           <Text style={styles.secondaryButtonText}>Need an account? Register</Text>
         </Pressable>
