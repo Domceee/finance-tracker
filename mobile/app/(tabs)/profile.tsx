@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/auth-provider';
-import { changePassword, updateProfile } from '../../lib/api';
+import { changePassword, updateProfile, deleteAccount } from '../../lib/api';
 import { AppPalette } from '../../constants/theme';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
@@ -219,6 +219,28 @@ export default function ProfileScreen() {
     }
   }
 
+  async function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'This action will permanently delete your account and cannot be undone. Are you sure you want to proceed?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async() => {
+            try {
+              await deleteAccount();
+              await logout();
+            } catch (err) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete account');
+            }
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Profile</Text>
@@ -240,14 +262,22 @@ export default function ProfileScreen() {
           <Text style={styles.actionButtonText}>Change Password</Text>
         </Pressable>
 
-        <Pressable
-          style={[styles.dangerButton, isLoggingOut && styles.buttonDisabled]}
-          onPress={handleLogout}
-          disabled={isLoggingOut}>
-          <Text style={styles.dangerButtonText}>
-            {isLoggingOut ? 'Signing out...' : 'Sign Out'}
-          </Text>
-        </Pressable>
+        <View style={styles.dangerGroup}>
+          <Pressable style={styles.dangerGroupButton} onPress={handleDeleteAccount}>
+            <Text style={styles.dangerButtonText}>Delete Account</Text>
+          </Pressable>
+
+          <View style={styles.dangerDivider} />
+
+          <Pressable
+            style={[styles.dangerGroupButton, isLoggingOut && styles.buttonDisabled]}
+            onPress={handleLogout}
+            disabled={isLoggingOut}>
+            <Text style={styles.dangerButtonText}>
+              {isLoggingOut ? 'Signing out...' : 'Sign Out'}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <ChangePasswordModal
@@ -360,13 +390,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15,
   },
-  dangerButton: {
+  dangerGroup: {
     backgroundColor: AppPalette.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: AppPalette.danger,
+    overflow: 'hidden',
+  },
+  dangerGroupButton: {
     padding: 16,
     alignItems: 'center',
+  },
+  dangerDivider: {
+    height: 1,
+    backgroundColor: AppPalette.danger,
   },
   dangerButtonText: {
     color: AppPalette.danger,

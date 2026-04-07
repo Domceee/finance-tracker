@@ -439,4 +439,26 @@ router.post('/logout', async (req, res) => {
   return res.status(204).send();
 });
 
+router.delete('/account', async(req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const token = authHeader.slice('Bearer '.length);
+  let userId: number;
+
+  try {
+    const payload = verifyAccessToken(token);
+    userId = payload.userId;
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  await prisma.user.delete({ where: { id: userId} });
+
+  return res.status(204).send();
+});
+
 export default router;

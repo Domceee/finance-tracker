@@ -276,6 +276,16 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
+export async function deleteAccount(): Promise<void> {
+  const response = await apiFetch('/auth/account', {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to delete account'));
+  }
+}
+
 export async function getOverviewInsights(
   year: number,
   month: number,

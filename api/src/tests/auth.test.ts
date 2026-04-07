@@ -886,4 +886,58 @@ describe.sequential('Auth API', () => {
     expect(loginWithOld.status).toBe(401);
     expect(loginWithNew.status).toBe(200);
   });
+
+  it('DELETE /auth/account rejects missing auth token', async () => {
+    const response = await request(app).delete('/auth/account');
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('DELETE /auth/account rejects an invalid token', async () => {
+    const response = await request(app)
+      .delete('/auth/account')
+      .set('Authorization', 'Bearer not-a-valid-token');
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Invalid or expired token' });
+  });
+
+  it('DELETE /auth/account deletes the user and returns 204', async () => {
+    const user = await createVerifiedUser('delete-me@example.com');
+    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+
+    const response = await request(app)
+      .delete('/auth/account')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    const deletedUser = await prisma.user.findUnique({ where: { id: user.id } });
+
+    expect(response.status).toBe(204);
+    expect(deletedUser).toBeNull();
+  });
+
+  it('DELETE /auth/account cascades to user transactions', async () => {
+    const user = await createVerifiedUser('delete-cascade@example.com');
+    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+
+    await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        title: 'Test',
+        amount: 10,
+        type: 'expense',
+        category: 'FOOD',
+        date: new Date(),
+      },
+    });
+
+    await request(app)
+      .delete('/auth/account')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    const transactions = await prisma.transaction.findMany({ where: { userId: user.id } });
+
+    expect(transactions).toHaveLength(0);
+  });
 });
