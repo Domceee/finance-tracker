@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from '
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { getTransactions, Transaction, TransactionCategory } from '@/lib/api';
+import { useCurrency } from '../../providers/currency-provider';
 import { AppPalette } from '../../constants/theme';
 
 function formatCategoryLabel(category: TransactionCategory) {
@@ -13,6 +14,7 @@ function formatCategoryLabel(category: TransactionCategory) {
 }
 
 export default function TransactionsScreen() {
+  const { formatCurrency } = useCurrency();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -62,8 +64,8 @@ export default function TransactionsScreen() {
               </Text>
             </View>
 
-            <Text style={item.amount >= 0 ? styles.income : styles.expense}>
-              {item.amount >= 0 ? '+' : '-'}EUR{Math.abs(item.amount).toFixed(2)}
+            <Text style={item.type === 'income' ? styles.income : styles.expense}>
+              {item.type === 'income' ? '+' : '-'}{formatCurrency(item.amount)}
             </Text>
           </Pressable>
         )}

@@ -6,6 +6,7 @@ import {
   EXPENSE_TRANSACTION_CATEGORIES,
   TransactionCategory,
 } from '../lib/api';
+import { useCurrency } from '../providers/currency-provider';
 import { AppPalette } from '../constants/theme';
 
 function formatCategoryLabel(category: TransactionCategory) {
@@ -17,6 +18,7 @@ function formatCategoryLabel(category: TransactionCategory) {
 }
 
 export default function AddTransactionScreen() {
+  const { currency, toEur } = useCurrency();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'expense' | 'income'>('expense');
@@ -28,7 +30,7 @@ export default function AddTransactionScreen() {
     try {
       await createTransaction({
         title,
-        amount: Number(amount),
+        amount: toEur(Number(amount)),
         type,
         category: type === 'income' ? 'SALARY' : category,
         date: new Date().toISOString(),
@@ -54,14 +56,19 @@ export default function AddTransactionScreen() {
         onChangeText={setTitle}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Amount"
-        placeholderTextColor={AppPalette.muted}
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="numeric"
-      />
+      <View style={styles.amountRow}>
+        <View style={styles.currencyBadge}>
+          <Text style={styles.currencyBadgeText}>{currency}</Text>
+        </View>
+        <TextInput
+          style={styles.amountInput}
+          placeholder="0.00"
+          placeholderTextColor={AppPalette.muted}
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="numeric"
+        />
+      </View>
 
       <TextInput
         style={styles.input}
@@ -274,5 +281,32 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: AppPalette.accent,
     fontWeight: '600',
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppPalette.surface,
+    borderColor: AppPalette.muted,
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  currencyBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRightWidth: 1,
+    borderRightColor: AppPalette.muted,
+    backgroundColor: AppPalette.elevated,
+  },
+  currencyBadgeText: {
+    color: AppPalette.accent,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  amountInput: {
+    flex: 1,
+    padding: 14,
+    color: AppPalette.text,
   },
 });
