@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   Modal,
   Pressable,
@@ -13,7 +14,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/auth-provider';
-import { changePassword, updateProfile, deleteAccount } from '../../lib/api';
+import { useCurrency } from '../../providers/currency-provider';
+import { changePassword, updateProfile, deleteAccount, SUPPORTED_CURRENCIES } from '../../lib/api';
 import { AppPalette } from '../../constants/theme';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
@@ -167,9 +169,71 @@ function ChangePasswordModal({ visible, onClose }: { visible: boolean; onClose: 
   );
 }
 
+function CurrencyPickerModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { currency, setCurrency } = useCurrency();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSelect(code: string) {
+    if (code === currency) {
+      onClose();
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      await setCurrency(code);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update currency');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Select Currency</Text>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <FlatList
+            data={SUPPORTED_CURRENCIES as unknown as string[]}
+            keyExtractor={(item) => item}
+            style={{ maxHeight: 320 }}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[styles.currencyRow, item === currency && styles.currencyRowSelected]}
+                onPress={() => handleSelect(item)}
+                disabled={isLoading}>
+                <Text style={[styles.currencyCode, item === currency && styles.currencyCodeSelected]}>
+                  {item}
+                </Text>
+                {item === currency && (
+                  <Text style={styles.currencyCheckmark}>✓</Text>
+                )}
+              </Pressable>
+            )}
+          />
+
+          <Pressable style={styles.cancelButton} onPress={onClose}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function ProfileScreen() {
   const { user, logout, updateUser } = useAuth();
+  const { currency } = useCurrency();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -262,6 +326,11 @@ export default function ProfileScreen() {
           <Text style={styles.actionButtonText}>Change Password</Text>
         </Pressable>
 
+        <Pressable style={styles.actionButton} onPress={() => setShowCurrencyPicker(true)}>
+          <Text style={styles.actionButtonText}>Currency</Text>
+          <Text style={styles.actionButtonValue}>{currency}</Text>
+        </Pressable>
+
         <View style={styles.dangerGroup}>
           <Pressable style={styles.dangerGroupButton} onPress={handleDeleteAccount}>
             <Text style={styles.dangerButtonText}>Delete Account</Text>
@@ -283,6 +352,11 @@ export default function ProfileScreen() {
       <ChangePasswordModal
         visible={showChangePassword}
         onClose={() => setShowChangePassword(false)}
+      />
+
+      <CurrencyPickerModal
+        visible={showCurrencyPicker}
+        onClose={() => setShowCurrencyPicker(false)}
       />
     </ScrollView>
   );
@@ -384,6 +458,8 @@ const styles = StyleSheet.create({
     borderColor: '#211C33',
     padding: 16,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   actionButtonText: {
     color: AppPalette.text,
@@ -468,5 +544,38 @@ const styles = StyleSheet.create({
     color: AppPalette.muted,
     fontWeight: '600',
     fontSize: 15,
+  },
+  actionButtonValue: {
+    color: AppPalette.accent,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  currencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: AppPalette.elevated,
+  },
+  currencyRowSelected: {
+    backgroundColor: AppPalette.elevated,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+  },
+  currencyCode: {
+    fontSize: 15,
+    color: AppPalette.text,
+    fontWeight: '500',
+  },
+  currencyCodeSelected: {
+    color: AppPalette.accent,
+    fontWeight: '700',
+  },
+  currencyCheckmark: {
+    color: AppPalette.accent,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

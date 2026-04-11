@@ -33,6 +33,7 @@ model User {
   verificationExpiresAt DateTime?
   name                  String?
   avatarUrl             String?
+  currency              String           @default("EUR")
   transactions          Transaction[]
   sessions              Session[]
   monthlySummaries      MonthlySummary[]

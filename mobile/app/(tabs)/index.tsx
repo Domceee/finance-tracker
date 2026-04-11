@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from
 import { useIsFocused } from '@react-navigation/native';
 import { getTransactions, Transaction } from '../../lib/api';
 import { useAuth } from '../../providers/auth-provider';
+import { useCurrency } from '../../providers/currency-provider';
 import { AppPalette } from '../../constants/theme';
 
 const budgetCategories = [
@@ -13,6 +14,7 @@ const budgetCategories = [
 
 export default function DashboardScreen() {
   const { user, logout } = useAuth();
+  const { formatCurrency } = useCurrency();
   const isFocused = useIsFocused();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,18 +65,18 @@ export default function DashboardScreen() {
 
       <View style={styles.balanceCard}>
         <Text style={styles.balanceTitle}>Total Balance</Text>
-        <Text style={styles.balanceAmount}>EUR {totalBalance.toFixed(2)}</Text>
+        <Text style={styles.balanceAmount}>{formatCurrency(totalBalance)}</Text>
       </View>
 
       <View style={styles.row}>
         <View style={[styles.smallCard, styles.cardSpacing]}>
           <Text style={styles.balanceTitle}>Income</Text>
-          <Text style={styles.incomeText}>EUR {income.toFixed(2)}</Text>
+          <Text style={styles.incomeText}>{formatCurrency(income)}</Text>
         </View>
 
         <View style={styles.smallCard}>
           <Text style={styles.balanceTitle}>Expenses</Text>
-          <Text style={styles.expenseText}>EUR {expenses.toFixed(2)}</Text>
+          <Text style={styles.expenseText}>{formatCurrency(expenses)}</Text>
         </View>
       </View>
 
@@ -97,8 +99,7 @@ export default function DashboardScreen() {
                 style={
                   transaction.type === 'income' ? styles.incomeText : styles.expenseText
                 }>
-                {transaction.type === 'income' ? '+' : '-'}EUR
-                {Math.abs(transaction.amount).toFixed(2)}
+                {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
               </Text>
             </View>
           ))
@@ -112,7 +113,7 @@ export default function DashboardScreen() {
             <View style={styles.budgetHeader}>
               <Text style={styles.listTitle}>{budget.title}</Text>
               <Text style={styles.listDate}>
-                EUR {budget.amount} / EUR {budget.limit}
+                {formatCurrency(budget.amount)} / {formatCurrency(budget.limit)}
               </Text>
             </View>
 

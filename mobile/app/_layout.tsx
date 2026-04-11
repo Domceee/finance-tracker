@@ -1,6 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '../providers/auth-provider';
+import { CurrencyProvider } from '../providers/currency-provider';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -55,7 +56,9 @@ function AppNavigation() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <AppNavigation />
+      <CurrencyProvider>
+        <AppNavigation />
+      </CurrencyProvider>
     </AuthProvider>
   );
 }

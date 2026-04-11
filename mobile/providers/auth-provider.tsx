@@ -12,6 +12,7 @@ type AuthUser = {
   email: string;
   name: string | null;
   avatarUrl?: string | null;
+  currency: string;
 };
 
 type AuthContextValue = {

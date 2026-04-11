@@ -8,6 +8,13 @@ const router = Router();
 const VERIFICATION_CODE_LENGTH = 6;
 const VERIFICATION_EXPIRY_MS = 10 * 60 * 1000;
 
+const SUPPORTED_CURRENCIES = new Set([
+  'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY',
+  'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'HRK',
+  'TRY', 'BRL', 'INR', 'KRW', 'SGD', 'HKD', 'NZD', 'MXN',
+  'ZAR', 'AED', 'SAR', 'ILS', 'RUB', 'UAH',
+]);
+
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -23,6 +30,7 @@ function buildAuthResponse(user: {
   email: string;
   name: string | null;
   avatarUrl: string | null;
+  currency: string;
 }) {
   const payload = {
     userId: user.id,
@@ -37,6 +45,7 @@ function buildAuthResponse(user: {
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      currency: user.currency,
     },
   };
 }
@@ -268,6 +277,7 @@ router.post('/refresh', async (req, res) => {
         email: session.user.email,
         name: session.user.name,
         avatarUrl: session.user.avatarUrl,
+        currency: session.user.currency,
       },
     });
   } catch {
@@ -292,15 +302,24 @@ router.patch('/profile', async (req, res) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  const { avatarUrl } = req.body;
+  const { avatarUrl, currency } = req.body;
 
   if (avatarUrl !== undefined && typeof avatarUrl !== 'string') {
     return res.status(400).json({ error: 'avatarUrl must be a string' });
   }
 
+  if (currency !== undefined) {
+    if (typeof currency !== 'string' || !SUPPORTED_CURRENCIES.has(currency)) {
+      return res.status(400).json({ error: 'Invalid currency code' });
+    }
+  }
+
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { avatarUrl: avatarUrl ?? null },
+    data: {
+      ...(avatarUrl !== undefined && { avatarUrl }),
+      ...(currency !== undefined && { currency }),
+    },
   });
 
   return res.status(200).json({
@@ -308,6 +327,7 @@ router.patch('/profile', async (req, res) => {
     email: updated.email,
     name: updated.name,
     avatarUrl: updated.avatarUrl,
+    currency: updated.currency,
   });
 });
 

@@ -940,4 +940,84 @@ describe.sequential('Auth API', () => {
 
     expect(transactions).toHaveLength(0);
   });
+
+  it('PATCH /auth/profile rejects missing auth token', async () => {
+    const response = await request(app).patch('/auth/profile').send({ currency: 'USD' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('PATCH /auth/profile rejects an invalid auth token', async () => {
+    const response = await request(app)
+      .patch('/auth/profile')
+      .set('Authorization', 'Bearer bad-token')
+      .send({ currency: 'USD' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Invalid or expired token' });
+  });
+
+  it('PATCH /auth/profile rejects an unsupported currency code', async () => {
+    const user = await createVerifiedUser('profile-bad-currency@example.com');
+    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+
+    const response = await request(app)
+      .patch('/auth/profile')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ currency: 'FAKE' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid currency code' });
+  });
+
+  it('PATCH /auth/profile updates currency and returns updated user', async () => {
+    const user = await createVerifiedUser('profile-currency@example.com');
+    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+
+    const response = await request(app)
+      .patch('/auth/profile')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ currency: 'USD' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.currency).toBe('USD');
+    expect(response.body.email).toBe('profile-currency@example.com');
+  });
+
+  it('PATCH /auth/profile persists the updated currency to the database', async () => {
+    const user = await createVerifiedUser('profile-currency-persist@example.com');
+    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+
+    await request(app)
+      .patch('/auth/profile')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ currency: 'GBP' });
+
+    const updated = await prisma.user.findUnique({ where: { id: user.id } });
+    expect(updated?.currency).toBe('GBP');
+  });
+
+  it('GET /rates returns 401 without auth token', async () => {
+    const response = await request(app).get('/rates');
+
+    expect(response.status).toBe(401);
+  });
+
+  it('GET /rates returns 503 when EXCHANGE_RATE_API_KEY is not set', async () => {
+    const user = await createVerifiedUser('rates-no-key@example.com');
+    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+
+    const original = process.env.EXCHANGE_RATE_API_KEY;
+    delete process.env.EXCHANGE_RATE_API_KEY;
+
+    const response = await request(app)
+      .get('/rates')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    process.env.EXCHANGE_RATE_API_KEY = original;
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({ error: 'Exchange rate service is not configured' });
+  });
 });

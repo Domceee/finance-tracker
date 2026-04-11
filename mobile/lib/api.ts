@@ -66,7 +66,17 @@ export type AuthUser = {
   email: string;
   name: string | null;
   avatarUrl?: string | null;
+  currency: string;
 };
+
+export const SUPPORTED_CURRENCIES = [
+  'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY',
+  'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'HRK',
+  'TRY', 'BRL', 'INR', 'KRW', 'SGD', 'HKD', 'NZD', 'MXN',
+  'ZAR', 'AED', 'SAR', 'ILS', 'RUB', 'UAH',
+] as const;
+
+export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 
 type AuthResponse = {
   accessToken: string;
@@ -236,6 +246,34 @@ export async function updateProfile(avatarUrl: string | null): Promise<AuthUser>
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to update profile'));
+  }
+
+  return response.json();
+}
+
+export async function updateCurrency(currency: string): Promise<AuthUser> {
+  const response = await apiFetch('/auth/profile', {
+    method: 'PATCH',
+    body: JSON.stringify({ currency }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to update currency'));
+  }
+
+  return response.json();
+}
+
+export type RatesResponse = {
+  rates: Record<string, number>;
+  cachedAt: string;
+};
+
+export async function getRates(): Promise<RatesResponse> {
+  const response = await apiFetch('/rates');
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch exchange rates'));
   }
 
   return response.json();

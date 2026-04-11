@@ -11,6 +11,7 @@ import {
   OverviewInsights,
   TransactionCategory,
 } from '../../lib/api';
+import { useCurrency } from '../../providers/currency-provider';
 
 const CHART_COLORS: Record<TransactionCategory, string> = {
   FOOD: '#A78BFA',
@@ -52,15 +53,6 @@ function getNextMonth(selection: MonthSelection): MonthSelection {
   }
 
   return { year: selection.year, month: selection.month + 1 };
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-IE', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
 }
 
 function formatCategoryLabel(category: TransactionCategory) {
@@ -173,6 +165,7 @@ function SpendingPieChart({ data }: { data: OverviewCategoryBreakdown[] }) {
 }
 
 export default function OverviewScreen() {
+  const { formatCurrency } = useCurrency();
   const isFocused = useIsFocused();
   const currentMonth = getCurrentMonthSelection();
   const [selectedMonth, setSelectedMonth] = useState<MonthSelection>(currentMonth);
