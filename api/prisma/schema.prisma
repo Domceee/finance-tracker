@@ -37,6 +37,7 @@ model User {
   transactions          Transaction[]
   sessions              Session[]
   monthlySummaries      MonthlySummary[]
+  budgets               Budget[]
 }
 
 model Transaction {
@@ -87,4 +88,14 @@ model MonthlyCategorySummary {
   amount           Float
 
   @@unique([monthlySummaryId, category])
+}
+
+model Budget {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  limitAmount Float
+  categories  String
+  createdAt   DateTime @default(now())
 }

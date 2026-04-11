@@ -264,10 +264,73 @@ export async function updateCurrency(currency: string): Promise<AuthUser> {
   return response.json();
 }
 
+export type Budget = {
+  id: number;
+  name: string;
+  limitAmount: number;
+  categories: TransactionCategory[];
+  spent: number;
+  createdAt: string;
+};
+
+type CreateBudgetInput = {
+  name: string;
+  limitAmount: number;
+  categories: TransactionCategory[];
+};
+
+type UpdateBudgetInput = Partial<CreateBudgetInput>;
+
 export type RatesResponse = {
   rates: Record<string, number>;
   cachedAt: string;
 };
+
+export async function getBudgets(): Promise<Budget[]> {
+  const response = await apiFetch('/budgets');
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch budgets'));
+  }
+
+  return response.json();
+}
+
+export async function createBudget(input: CreateBudgetInput): Promise<Budget> {
+  const response = await apiFetch('/budgets', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to create budget'));
+  }
+
+  return response.json();
+}
+
+export async function updateBudget(id: number, input: UpdateBudgetInput): Promise<Budget> {
+  const response = await apiFetch(`/budgets/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to update budget'));
+  }
+
+  return response.json();
+}
+
+export async function deleteBudget(id: number): Promise<void> {
+  const response = await apiFetch(`/budgets/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to delete budget'));
+  }
+}
 
 export async function getRates(): Promise<RatesResponse> {
   const response = await apiFetch('/rates');
