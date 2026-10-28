@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
+import { rateLimit } from 'express-rate-limit';
 import transactionsRouter from './routes/transactions.js';
 import authRouter from './routes/auth.js';
 import aiRouter from './routes/ai.js';
