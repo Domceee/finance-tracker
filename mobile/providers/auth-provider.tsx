@@ -1,19 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import {
-  clearTokens,
-  getRefreshToken,
-  saveAccessToken,
-  saveTokens,
-} from '../lib/auth-storage';
-import { login, logoutSession, refreshSession, register, verifyEmail } from '../lib/api';
-
-type AuthUser = {
-  id: number;
-  email: string;
-  name: string | null;
-  avatarUrl?: string | null;
-  currency: string;
-};
+import { clearTokens, getRefreshToken, saveTokens } from '../lib/auth-storage';
+import { login, logoutSession, register, verifyEmail, type AuthUser } from '../lib/api';
+import { refreshTokens } from '../lib/api-client';
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -44,8 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const result = await refreshSession(storedRefreshToken);
-        await saveAccessToken(result.accessToken);
+        const result = await refreshTokens();
         setAccessToken(result.accessToken);
         setUser(result.user);
       } catch {

@@ -17,7 +17,7 @@ async function createTestUser() {
 
 async function createAuthedUser() {
   const user = await createTestUser();
-  const accessToken = signAccessToken({ userId: user.id, email: user.email });
+  const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
   return { user, accessToken };
 }

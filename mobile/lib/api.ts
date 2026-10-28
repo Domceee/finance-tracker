@@ -67,6 +67,7 @@ export type AuthUser = {
   name: string | null;
   avatarUrl?: string | null;
   currency: string;
+  role: 'USER' | 'ADMIN';
 };
 
 export const SUPPORTED_CURRENCIES = [
@@ -81,11 +82,6 @@ export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 type AuthResponse = {
   accessToken: string;
   refreshToken: string;
-  user: AuthUser;
-};
-
-type RefreshResponse = {
-  accessToken: string;
   user: AuthUser;
 };
 
@@ -159,22 +155,6 @@ export async function login(email: string, password: string): Promise<AuthRespon
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to log in'));
-  }
-
-  return response.json();
-}
-
-export async function refreshSession(refreshToken: string): Promise<RefreshResponse> {
-  const response = await fetch(`${BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ refreshToken }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await getErrorMessage(response, 'Failed to refresh session'));
   }
 
   return response.json();

@@ -1,12 +1,15 @@
 import { Router } from 'express';
+import type { Role, User } from '@prisma/client';
 import prisma from '../prisma.js';
-import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from '../lib/jwt.js';
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/jwt.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mail.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 const VERIFICATION_CODE_LENGTH = 6;
 const VERIFICATION_EXPIRY_MS = 10 * 60 * 1000;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_ACCOUNT_NAME = 'Main';
 
 const SUPPORTED_CURRENCIES = new Set([
@@ -32,23 +35,33 @@ function buildAuthResponse(user: {
   name: string | null;
   avatarUrl: string | null;
   currency: string;
+  role: Role;
 }) {
-  const payload = {
-    userId: user.id,
-    email: user.email,
-  };
-
   return {
-    accessToken: signAccessToken(payload),
-    refreshToken: signRefreshToken(payload),
+    accessToken: signAccessToken({ userId: user.id, email: user.email, role: user.role }),
+    refreshToken: signRefreshToken({ userId: user.id, email: user.email }),
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
       currency: user.currency,
+      role: user.role,
     },
   };
+}
+
+async function applyAdminEmail(user: User) {
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+
+  if (!adminEmail || user.email.toLowerCase() !== adminEmail || user.role === 'ADMIN') {
+    return user;
+  }
+
+  return prisma.user.update({
+    where: { id: user.id },
+    data: { role: 'ADMIN' },
+  });
 }
 
 router.post('/register', async (req, res) => {
@@ -146,14 +159,16 @@ router.post('/verify-email', async (req, res) => {
     return res.status(400).json({ error: 'Invalid verification code' });
   }
 
-  const verifiedUser = await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      isVerified: true,
-      verificationCode: null,
-      verificationExpiresAt: null,
-    },
-  });
+  const verifiedUser = await applyAdminEmail(
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        verificationCode: null,
+        verificationExpiresAt: null,
+      },
+    }),
+  );
 
   const authResponse = buildAuthResponse(verifiedUser);
 
@@ -161,7 +176,7 @@ router.post('/verify-email', async (req, res) => {
     data: {
       userId: verifiedUser.id,
       refreshToken: authResponse.refreshToken,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     },
   });
 
@@ -193,13 +208,13 @@ router.post('/login', async (req, res) => {
     return res.status(403).json({ error: 'Please verify your email before signing in' });
   }
 
-  const authResponse = buildAuthResponse(user);
+  const authResponse = buildAuthResponse(await applyAdminEmail(user));
 
   await prisma.session.create({
     data: {
       userId: user.id,
       refreshToken: authResponse.refreshToken,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     },
   });
 
@@ -207,6 +222,10 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/dev-login', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
   const { email, name } = req.body;
 
   if (!email || typeof email !== 'string') {
@@ -228,13 +247,13 @@ router.post('/dev-login', async (req, res) => {
     });
   }
 
-  const authResponse = buildAuthResponse(user);
+  const authResponse = buildAuthResponse(await applyAdminEmail(user));
 
   await prisma.session.create({
     data: {
       userId: user.id,
       refreshToken: authResponse.refreshToken,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     },
   });
 
@@ -249,7 +268,7 @@ router.post('/refresh', async (req, res) => {
   }
 
   try {
-    const payload = verifyRefreshToken(refreshToken);
+    verifyRefreshToken(refreshToken);
 
     const session = await prisma.session.findUnique({
       where: { refreshToken },
@@ -268,43 +287,38 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: 'Refresh token expired' });
     }
 
-    const newAccessToken = signAccessToken({
-      userId: payload.userId,
-      email: payload.email,
+    const authResponse = buildAuthResponse(session.user);
+
+    const rotated = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.session.deleteMany({ where: { id: session.id } });
+
+      if (count === 0) {
+        return false;
+      }
+
+      await tx.session.create({
+        data: {
+          userId: session.userId,
+          refreshToken: authResponse.refreshToken,
+          expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+        },
+      });
+
+      return true;
     });
 
-    return res.json({
-      accessToken: newAccessToken,
-      user: {
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.name,
-        avatarUrl: session.user.avatarUrl,
-        currency: session.user.currency,
-      },
-    });
+    if (!rotated) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+
+    return res.json(authResponse);
   } catch {
     return res.status(401).json({ error: 'Invalid refresh token' });
   }
 });
 
-router.patch('/profile', async (req, res) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.slice('Bearer '.length);
-  let userId: number;
-
-  try {
-    const payload = verifyAccessToken(token);
-    userId = payload.userId;
-  } catch {
-    return res.status(401).json({ error: 'Invalid or expired token' });
-  }
-
+router.patch('/profile', requireAuth, async (req, res) => {
+  const userId = req.user!.userId;
   const { avatarUrl, currency } = req.body;
 
   if (avatarUrl !== undefined && typeof avatarUrl !== 'string') {
@@ -331,6 +345,7 @@ router.patch('/profile', async (req, res) => {
     name: updated.name,
     avatarUrl: updated.avatarUrl,
     currency: updated.currency,
+    role: updated.role,
   });
 });
 
@@ -407,23 +422,8 @@ router.post('/reset-password', async (req, res) => {
   return res.status(200).json({ message: 'Password reset successfully' });
 });
 
-router.post('/change-password', async (req, res) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.slice('Bearer '.length);
-  let userId: number;
-
-  try {
-    const payload = verifyAccessToken(token);
-    userId = payload.userId;
-  } catch {
-    return res.status(401).json({ error: 'Invalid or expired token' });
-  }
-
+router.post('/change-password', requireAuth, async (req, res) => {
+  const userId = req.user!.userId;
   const { currentPassword, newPassword } = req.body;
 
   if (!currentPassword || typeof currentPassword !== 'string') {
@@ -462,24 +462,10 @@ router.post('/logout', async (req, res) => {
   return res.status(204).send();
 });
 
-router.delete('/account', async(req, res) => {
-  const authHeader = req.headers.authorization;
+router.delete('/account', requireAuth, async (req, res) => {
+  const userId = req.user!.userId;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.slice('Bearer '.length);
-  let userId: number;
-
-  try {
-    const payload = verifyAccessToken(token);
-    userId = payload.userId;
-  } catch {
-    return res.status(401).json({ error: 'Invalid or expired token' });
-  }
-
-  await prisma.user.delete({ where: { id: userId} });
+  await prisma.user.delete({ where: { id: userId } });
 
   return res.status(204).send();
 });

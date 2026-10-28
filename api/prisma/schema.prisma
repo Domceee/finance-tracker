@@ -23,6 +23,11 @@ enum TransactionCategory {
   OTHER
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 enum AccountType {
   CARD
   CASH
@@ -41,6 +46,7 @@ model User {
   name                  String?
   avatarUrl             String?
   currency              String           @default("EUR")
+  role                  Role             @default(USER)
   accounts              Account[]
   transactions          Transaction[]
   sessions              Session[]

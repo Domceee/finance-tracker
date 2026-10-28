@@ -41,7 +41,7 @@ describe.sequential('Budgets API', () => {
 
   it('GET /budgets returns empty array when no budgets', async () => {
     const user = await createVerifiedUser('budgets-empty@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app).get('/budgets').set('Authorization', `Bearer ${token}`);
 
@@ -51,7 +51,7 @@ describe.sequential('Budgets API', () => {
 
   it('GET /budgets returns budgets with current-month spending', async () => {
     const user = await createVerifiedUser('budgets-spending@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     await prisma.budget.create({
       data: { userId: user.id, name: 'Food Budget', limitAmount: 200, categories: 'FOOD' },
@@ -83,7 +83,7 @@ describe.sequential('Budgets API', () => {
 
   it('GET /budgets excludes transactions from other months', async () => {
     const user = await createVerifiedUser('budgets-other-month@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     await prisma.budget.create({
       data: { userId: user.id, name: 'Food Budget', limitAmount: 200, categories: 'FOOD' },
@@ -112,7 +112,7 @@ describe.sequential('Budgets API', () => {
   it('GET /budgets uses UTC month boundaries regardless of server timezone', async () => {
     vi.stubEnv('TZ', 'Europe/Vilnius');
     const user = await createVerifiedUser('budgets-utc@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
     const account = await createAccount(user.id);
 
     await prisma.budget.create({
@@ -144,7 +144,7 @@ describe.sequential('Budgets API', () => {
 
   it('GET /budgets/:id returns an own budget with current-month spending', async () => {
     const user = await createVerifiedUser('budget-get@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
     const account = await createAccount(user.id);
 
     const budget = await prisma.budget.create({
@@ -181,7 +181,7 @@ describe.sequential('Budgets API', () => {
   it('GET /budgets/:id returns 404 for another user\'s budget', async () => {
     const owner = await createVerifiedUser('budget-get-owner@example.com');
     const other = await createVerifiedUser('budget-get-other@example.com');
-    const token = signAccessToken({ userId: other.id, email: other.email });
+    const token = signAccessToken({ userId: other.id, email: other.email, role: other.role });
 
     const budget = await prisma.budget.create({
       data: { userId: owner.id, name: 'Mine', limitAmount: 100, categories: 'FOOD' },
@@ -197,7 +197,7 @@ describe.sequential('Budgets API', () => {
 
   it('GET /budgets/:id returns 400 for an invalid id', async () => {
     const user = await createVerifiedUser('budget-get-invalid@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .get('/budgets/not-a-number')
@@ -217,7 +217,7 @@ describe.sequential('Budgets API', () => {
 
   it('POST /budgets rejects missing name', async () => {
     const user = await createVerifiedUser('budgets-no-name@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .post('/budgets')
@@ -230,7 +230,7 @@ describe.sequential('Budgets API', () => {
 
   it('POST /budgets rejects invalid limitAmount', async () => {
     const user = await createVerifiedUser('budgets-bad-limit@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .post('/budgets')
@@ -243,7 +243,7 @@ describe.sequential('Budgets API', () => {
 
   it('POST /budgets rejects empty categories', async () => {
     const user = await createVerifiedUser('budgets-no-cats@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .post('/budgets')
@@ -256,7 +256,7 @@ describe.sequential('Budgets API', () => {
 
   it('POST /budgets rejects invalid category', async () => {
     const user = await createVerifiedUser('budgets-bad-cat@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .post('/budgets')
@@ -269,7 +269,7 @@ describe.sequential('Budgets API', () => {
 
   it('POST /budgets creates and returns a budget', async () => {
     const user = await createVerifiedUser('budgets-create@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .post('/budgets')
@@ -286,7 +286,7 @@ describe.sequential('Budgets API', () => {
   it('PATCH /budgets/:id returns 404 for another user\'s budget', async () => {
     const owner = await createVerifiedUser('budget-owner@example.com');
     const other = await createVerifiedUser('budget-other@example.com');
-    const token = signAccessToken({ userId: other.id, email: other.email });
+    const token = signAccessToken({ userId: other.id, email: other.email, role: other.role });
 
     const budget = await prisma.budget.create({
       data: { userId: owner.id, name: 'Mine', limitAmount: 100, categories: 'FOOD' },
@@ -302,7 +302,7 @@ describe.sequential('Budgets API', () => {
 
   it('PATCH /budgets/:id updates name and returns updated budget', async () => {
     const user = await createVerifiedUser('budget-patch@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const budget = await prisma.budget.create({
       data: { userId: user.id, name: 'Old Name', limitAmount: 100, categories: 'FOOD' },
@@ -321,7 +321,7 @@ describe.sequential('Budgets API', () => {
   it('DELETE /budgets/:id returns 404 for another user\'s budget', async () => {
     const owner = await createVerifiedUser('budget-del-owner@example.com');
     const other = await createVerifiedUser('budget-del-other@example.com');
-    const token = signAccessToken({ userId: other.id, email: other.email });
+    const token = signAccessToken({ userId: other.id, email: other.email, role: other.role });
 
     const budget = await prisma.budget.create({
       data: { userId: owner.id, name: 'Mine', limitAmount: 100, categories: 'FOOD' },
@@ -336,7 +336,7 @@ describe.sequential('Budgets API', () => {
 
   it('DELETE /budgets/:id deletes the budget and returns 204', async () => {
     const user = await createVerifiedUser('budget-delete@example.com');
-    const token = signAccessToken({ userId: user.id, email: user.email });
+    const token = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const budget = await prisma.budget.create({
       data: { userId: user.id, name: 'To Delete', limitAmount: 100, categories: 'FOOD' },

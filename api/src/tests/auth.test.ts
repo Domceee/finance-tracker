@@ -7,7 +7,7 @@ vi.mock('../lib/mail.js', () => ({
 }));
 
 import app from '../app.js';
-import { signAccessToken, signRefreshToken } from '../lib/jwt.js';
+import { signAccessToken, signRefreshToken, verifyAccessToken } from '../lib/jwt.js';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../lib/mail.js';
 import { hashPassword } from '../lib/password.js';
 import prisma from '../prisma.js';
@@ -76,6 +76,7 @@ describe.sequential('Auth API', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await prisma.session.deleteMany();
     await prisma.transaction.deleteMany();
     await prisma.user.deleteMany();
@@ -543,6 +544,135 @@ describe.sequential('Auth API', () => {
     expect(response.body.user.email).toBe('refresh-success@example.com');
   });
 
+  it('POST /auth/refresh rotates the refresh token and revokes the old one', async () => {
+    const user = await createVerifiedUser('refresh-rotate@example.com');
+    const oldRefreshToken = signRefreshToken({ userId: user.id, email: user.email });
+    const oldSession = await createSession(user.id, oldRefreshToken);
+
+    const response = await request(app).post('/auth/refresh').send({
+      refreshToken: oldRefreshToken,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.refreshToken).toEqual(expect.any(String));
+    expect(response.body.refreshToken).not.toBe(oldRefreshToken);
+    expect(await prisma.session.findUnique({ where: { id: oldSession.id } })).toBeNull();
+    expect(
+      await prisma.session.findUnique({ where: { refreshToken: response.body.refreshToken } }),
+    ).not.toBeNull();
+  });
+
+  it('POST /auth/refresh rejects a refresh token that was already rotated', async () => {
+    const user = await createVerifiedUser('refresh-reuse@example.com');
+    const oldRefreshToken = signRefreshToken({ userId: user.id, email: user.email });
+    await createSession(user.id, oldRefreshToken);
+
+    await request(app).post('/auth/refresh').send({ refreshToken: oldRefreshToken });
+
+    const reuse = await request(app).post('/auth/refresh').send({
+      refreshToken: oldRefreshToken,
+    });
+
+    expect(reuse.status).toBe(401);
+    expect(reuse.body).toEqual({ error: 'Invalid refresh token' });
+  });
+
+  it('POST /auth/refresh works immediately after login and keeps rotating', async () => {
+    await createVerifiedUser('refresh-chain@example.com');
+    const login = await request(app).post('/auth/login').send({
+      email: 'refresh-chain@example.com',
+      password: 'password123',
+    });
+
+    const first = await request(app).post('/auth/refresh').send({
+      refreshToken: login.body.refreshToken,
+    });
+    const second = await request(app).post('/auth/refresh').send({
+      refreshToken: first.body.refreshToken,
+    });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(new Set([login.body.refreshToken, first.body.refreshToken, second.body.refreshToken]).size).toBe(3);
+  });
+
+  it('POST /auth/refresh returns the current role from the database', async () => {
+    const user = await createVerifiedUser('refresh-role@example.com');
+    const refreshToken = signRefreshToken({ userId: user.id, email: user.email });
+    await createSession(user.id, refreshToken);
+    await prisma.user.update({ where: { id: user.id }, data: { role: 'ADMIN' } });
+
+    const response = await request(app).post('/auth/refresh').send({ refreshToken });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.role).toBe('ADMIN');
+    expect(verifyAccessToken(response.body.accessToken).role).toBe('ADMIN');
+  });
+
+  it('POST /auth/login returns the user role in the body and the access token', async () => {
+    await createVerifiedUser('login-role@example.com');
+
+    const response = await request(app).post('/auth/login').send({
+      email: 'login-role@example.com',
+      password: 'password123',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.role).toBe('USER');
+    expect(verifyAccessToken(response.body.accessToken).role).toBe('USER');
+  });
+
+  it('POST /auth/login promotes the ADMIN_EMAIL user to admin', async () => {
+    vi.stubEnv('ADMIN_EMAIL', 'Boss@Example.com');
+    const user = await createVerifiedUser('boss@example.com');
+
+    const response = await request(app).post('/auth/login').send({
+      email: 'boss@example.com',
+      password: 'password123',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.role).toBe('ADMIN');
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).role).toBe('ADMIN');
+  });
+
+  it('POST /auth/login does not promote other users when ADMIN_EMAIL is set', async () => {
+    vi.stubEnv('ADMIN_EMAIL', 'boss@example.com');
+    await createVerifiedUser('worker@example.com');
+
+    const response = await request(app).post('/auth/login').send({
+      email: 'worker@example.com',
+      password: 'password123',
+    });
+
+    expect(response.body.user.role).toBe('USER');
+  });
+
+  it('POST /auth/verify-email promotes the ADMIN_EMAIL user to admin', async () => {
+    vi.stubEnv('ADMIN_EMAIL', 'new-boss@example.com');
+    await createUnverifiedUser({ email: 'new-boss@example.com' });
+
+    const response = await request(app).post('/auth/verify-email').send({
+      email: 'new-boss@example.com',
+      code: '123456',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.role).toBe('ADMIN');
+  });
+
+  it('POST /auth/dev-login is disabled in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    const response = await request(app).post('/auth/dev-login').send({
+      email: 'prod-dev-login@example.com',
+    });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Not found' });
+    expect(await prisma.user.findUnique({ where: { email: 'prod-dev-login@example.com' } })).toBeNull();
+  });
+
   it('POST /auth/logout rejects missing refresh token', async () => {
     const response = await request(app).post('/auth/logout').send({});
 
@@ -867,7 +997,7 @@ describe.sequential('Auth API', () => {
 
   it('POST /auth/change-password updates the stored password hash', async () => {
     const user = await createVerifiedUser('change-pwd-hash@example.com');
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     await request(app)
       .post('/auth/change-password')
@@ -906,7 +1036,7 @@ describe.sequential('Auth API', () => {
 
   it('DELETE /auth/account deletes the user and returns 204', async () => {
     const user = await createVerifiedUser('delete-me@example.com');
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .delete('/auth/account')
@@ -920,7 +1050,7 @@ describe.sequential('Auth API', () => {
 
   it('DELETE /auth/account cascades to user transactions', async () => {
     const user = await createVerifiedUser('delete-cascade@example.com');
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
     const account = await createAccount(user.id);
 
     await prisma.transaction.create({
@@ -963,7 +1093,7 @@ describe.sequential('Auth API', () => {
 
   it('PATCH /auth/profile rejects an unsupported currency code', async () => {
     const user = await createVerifiedUser('profile-bad-currency@example.com');
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .patch('/auth/profile')
@@ -976,7 +1106,7 @@ describe.sequential('Auth API', () => {
 
   it('PATCH /auth/profile updates currency and returns updated user', async () => {
     const user = await createVerifiedUser('profile-currency@example.com');
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const response = await request(app)
       .patch('/auth/profile')
@@ -990,7 +1120,7 @@ describe.sequential('Auth API', () => {
 
   it('PATCH /auth/profile persists the updated currency to the database', async () => {
     const user = await createVerifiedUser('profile-currency-persist@example.com');
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     await request(app)
       .patch('/auth/profile')
@@ -1001,15 +1131,9 @@ describe.sequential('Auth API', () => {
     expect(updated?.currency).toBe('GBP');
   });
 
-  it('GET /rates returns 401 without auth token', async () => {
-    const response = await request(app).get('/rates');
-
-    expect(response.status).toBe(401);
-  });
-
   it('GET /rates returns 503 when EXCHANGE_RATE_API_KEY is not set', async () => {
     const user = await createVerifiedUser('rates-no-key@example.com');
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
     const original = process.env.EXCHANGE_RATE_API_KEY;
     delete process.env.EXCHANGE_RATE_API_KEY;

@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -8,7 +7,7 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 let cachedRates: Record<string, number> | null = null;
 let cacheExpiresAt = 0;
 
-router.get('/', requireAuth, async (_req, res) => {
+router.get('/', async (_req, res) => {
   if (cachedRates && Date.now() < cacheExpiresAt) {
     return res.json({ rates: cachedRates, cachedAt: new Date(cacheExpiresAt - CACHE_TTL_MS) });
   }

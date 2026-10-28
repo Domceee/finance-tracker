@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import type { Role } from '@prisma/client';
 import { verifyAccessToken } from '../lib/jwt.js';
 
 declare global {
@@ -7,6 +8,7 @@ declare global {
       user?: {
         userId: number;
         email: string;
+        role: Role;
       };
     }
   }
@@ -27,9 +29,19 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
   try {
     const payload = verifyAccessToken(token);
-    req.user = payload;
+    req.user = { userId: payload.userId, email: payload.email, role: payload.role };
     return next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
+}
+
+export function requireRole(role: Role) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (req.user?.role !== role) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    return next();
+  };
 }

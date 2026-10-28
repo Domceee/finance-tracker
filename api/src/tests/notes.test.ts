@@ -13,7 +13,7 @@ async function createAuthedUser() {
     },
   });
   const account = await createAccount(user.id);
-  const accessToken = signAccessToken({ userId: user.id, email: user.email });
+  const accessToken = signAccessToken({ userId: user.id, email: user.email, role: user.role });
 
   return { user, account, accessToken };
 }
