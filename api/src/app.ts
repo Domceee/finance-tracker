@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import transactionsRouter from './routes/transactions.js';
 import authRouter from './routes/auth.js';
@@ -12,6 +13,21 @@ import adminRouter from './routes/admin.js';
 import categoriesRouter from './routes/categories.js';
 
 const app = express();
+
+function isAllowedOrigin(origin: string) {
+  const allowed = (process.env.WEB_ORIGIN ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  return allowed.includes(origin);
+}
+
+app.set('trust proxy', 1);
+
+app.use(cors({
+    origin: (origin, callback) => callback(null, origin !== undefined && isAllowedOrigin(origin)),
+}));
 
 app.use(express.json());
 

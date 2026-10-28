@@ -8,6 +8,7 @@
     "dev": "tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/src/server.js",
+    "postinstall": "prisma generate",
     "prisma:studio": "prisma studio",
     "test:prepare": "node --env-file=.env.test ./node_modules/prisma/build/index.js db push",
     "pretest": "npm run test:prepare",
@@ -22,6 +23,7 @@
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "@types/nodemailer": "^7.0.11",
+    "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
     "jsonwebtoken": "^9.0.3",
@@ -29,6 +31,7 @@
     "pg": "^8.23.1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.5.0",
