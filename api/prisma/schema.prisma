@@ -23,6 +23,13 @@ enum TransactionCategory {
   OTHER
 }
 
+enum AccountType {
+  CARD
+  CASH
+  SAVINGS
+  OTHER
+}
+
 model User {
   id                    Int              @id @default(autoincrement())
   googleId              String?          @unique
@@ -34,10 +41,21 @@ model User {
   name                  String?
   avatarUrl             String?
   currency              String           @default("EUR")
+  accounts              Account[]
   transactions          Transaction[]
   sessions              Session[]
   monthlySummaries      MonthlySummary[]
   budgets               Budget[]
+}
+
+model Account {
+  id           Int           @id @default(autoincrement())
+  userId       Int
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  type         AccountType   @default(OTHER)
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
 }
 
 model Transaction {
@@ -50,6 +68,18 @@ model Transaction {
   description String?
   userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId   Int
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  notes       Note[]
+}
+
+model Note {
+  id            Int         @id @default(autoincrement())
+  transactionId Int
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  content       String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model Session {

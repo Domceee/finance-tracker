@@ -25,6 +25,7 @@ vi.mock('../lib/insights.js', async (importOriginal) => {
 
 import app from '../app.js';
 import prisma from '../prisma.js';
+import { createAccount } from './helpers.js';
 
 async function loginTestUser() {
   const email = `ai-login-${Date.now()}-${Math.random()}@example.com`;
@@ -34,9 +35,13 @@ async function loginTestUser() {
     name: 'AI User',
   });
 
+  const user = response.body.user as { id: number };
+  const account = await createAccount(user.id);
+
   return {
     accessToken: response.body.accessToken as string,
-    user: response.body.user as { id: number },
+    user,
+    account,
   };
 }
 
@@ -167,7 +172,7 @@ describe.sequential('AI API', () => {
   });
 
   it('generates and stores insights for a past month without cache', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
     mockGenerateOverviewInsights.mockResolvedValue({
       summary: 'Generated summary',
       warning: 'Generated warning',
@@ -183,6 +188,7 @@ describe.sequential('AI API', () => {
           category: 'SALARY',
           date: new Date('2026-02-03T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
         {
           title: 'Groceries',
@@ -191,6 +197,7 @@ describe.sequential('AI API', () => {
           category: 'FOOD',
           date: new Date('2026-02-05T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
       ],
     });

@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import app from '../app.js';
 import prisma from '../prisma.js';
+import { createAccount } from './helpers.js';
 
 async function createTestUser() {
   return prisma.user.create({
@@ -21,9 +22,13 @@ async function loginTestUser() {
     name: 'Overview User',
   });
 
+  const user = response.body.user as { id: number };
+  const account = await createAccount(user.id);
+
   return {
     accessToken: response.body.accessToken as string,
-    user: response.body.user as { id: number },
+    user,
+    account,
   };
 }
 
@@ -67,8 +72,9 @@ describe.sequential('Overview API', () => {
   });
 
   it('returns monthly totals for the selected month only', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
     const otherUser = await createTestUser();
+    const otherAccount = await createAccount(otherUser.id);
 
     await prisma.transaction.createMany({
       data: [
@@ -79,6 +85,7 @@ describe.sequential('Overview API', () => {
           category: 'SALARY',
           date: new Date('2026-04-05T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
         {
           title: 'Groceries',
@@ -87,6 +94,7 @@ describe.sequential('Overview API', () => {
           category: 'FOOD',
           date: new Date('2026-04-06T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
         {
           title: 'Old month',
@@ -95,6 +103,7 @@ describe.sequential('Overview API', () => {
           category: 'OTHER',
           date: new Date('2026-03-06T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
         {
           title: 'Other user',
@@ -103,6 +112,7 @@ describe.sequential('Overview API', () => {
           category: 'SHOPPING',
           date: new Date('2026-04-10T12:00:00.000Z'),
           userId: otherUser.id,
+          accountId: otherAccount.id,
         },
       ],
     });
@@ -122,7 +132,7 @@ describe.sequential('Overview API', () => {
   });
 
   it('returns the expense breakdown grouped by category', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     await prisma.transaction.createMany({
       data: [
@@ -133,6 +143,7 @@ describe.sequential('Overview API', () => {
           category: 'SALARY',
           date: new Date('2026-04-05T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
         {
           title: 'Groceries',
@@ -141,6 +152,7 @@ describe.sequential('Overview API', () => {
           category: 'FOOD',
           date: new Date('2026-04-06T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
         {
           title: 'Dinner',
@@ -149,6 +161,7 @@ describe.sequential('Overview API', () => {
           category: 'EATOUT',
           date: new Date('2026-04-07T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
       ],
     });
@@ -165,7 +178,7 @@ describe.sequential('Overview API', () => {
   });
 
   it('creates a snapshot when requesting a past month without one', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     await prisma.transaction.createMany({
       data: [
@@ -176,6 +189,7 @@ describe.sequential('Overview API', () => {
           category: 'SALARY',
           date: new Date('2026-02-02T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
         {
           title: 'Rent',
@@ -184,6 +198,7 @@ describe.sequential('Overview API', () => {
           category: 'RENT',
           date: new Date('2026-02-05T12:00:00.000Z'),
           userId: user.id,
+          accountId: account.id,
         },
       ],
     });
@@ -224,7 +239,7 @@ describe.sequential('Overview API', () => {
   });
 
   it('returns an existing snapshot for a past month', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     const snapshot = await prisma.monthlySummary.create({
       data: {
@@ -260,6 +275,7 @@ describe.sequential('Overview API', () => {
         category: 'OTHER',
         date: new Date('2026-01-10T12:00:00.000Z'),
         userId: user.id,
+        accountId: account.id,
       },
     });
 

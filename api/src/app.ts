@@ -6,6 +6,8 @@ import aiRouter from './routes/ai.js';
 import overviewRouter from './routes/overview.js';
 import ratesRouter from './routes/rates.js';
 import budgetsRouter from './routes/budgets.js';
+import accountsRouter from './routes/accounts.js';
+import notesRouter from './routes/notes.js';
 
 const app = express();
 
@@ -56,5 +58,7 @@ app.use('/overview', overviewRouter);
 app.use('/transactions', transactionsRouter);
 app.use('/rates', ratesRouter);
 app.use('/budgets', budgetsRouter);
+app.use('/accounts', accountsRouter);
+app.use('/notes', notesRouter);
 
 export default app;

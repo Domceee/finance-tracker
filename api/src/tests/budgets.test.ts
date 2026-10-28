@@ -1,9 +1,10 @@
 import request from 'supertest';
-import { afterAll, afterEach, beforeEach, describe, it, expect } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import app from '../app.js';
 import { signAccessToken } from '../lib/jwt.js';
 import { hashPassword } from '../lib/password.js';
 import prisma from '../prisma.js';
+import { createAccount } from './helpers.js';
 
 async function createVerifiedUser(email?: string) {
   return prisma.user.create({
@@ -23,6 +24,7 @@ describe.sequential('Budgets API', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await prisma.budget.deleteMany();
     await prisma.transaction.deleteMany();
     await prisma.user.deleteMany();
@@ -55,10 +57,12 @@ describe.sequential('Budgets API', () => {
       data: { userId: user.id, name: 'Food Budget', limitAmount: 200, categories: 'FOOD' },
     });
 
+    const account = await createAccount(user.id);
     const now = new Date();
     await prisma.transaction.create({
       data: {
         userId: user.id,
+        accountId: account.id,
         title: 'Lunch',
         amount: 15,
         type: 'expense',
@@ -85,10 +89,12 @@ describe.sequential('Budgets API', () => {
       data: { userId: user.id, name: 'Food Budget', limitAmount: 200, categories: 'FOOD' },
     });
 
+    const account = await createAccount(user.id);
     const now = new Date();
     await prisma.transaction.create({
       data: {
         userId: user.id,
+        accountId: account.id,
         title: 'Old Lunch',
         amount: 50,
         type: 'expense',
@@ -101,6 +107,104 @@ describe.sequential('Budgets API', () => {
 
     expect(response.status).toBe(200);
     expect(response.body[0].spent).toBe(0);
+  });
+
+  it('GET /budgets uses UTC month boundaries regardless of server timezone', async () => {
+    vi.stubEnv('TZ', 'Europe/Vilnius');
+    const user = await createVerifiedUser('budgets-utc@example.com');
+    const token = signAccessToken({ userId: user.id, email: user.email });
+    const account = await createAccount(user.id);
+
+    await prisma.budget.create({
+      data: { userId: user.id, name: 'Food Budget', limitAmount: 200, categories: 'FOOD' },
+    });
+
+    const now = new Date();
+    const lastMomentOfPreviousUtcMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - 1,
+    );
+
+    await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        accountId: account.id,
+        title: 'Late night snack',
+        amount: 40,
+        type: 'expense',
+        category: 'FOOD',
+        date: lastMomentOfPreviousUtcMonth,
+      },
+    });
+
+    const response = await request(app).get('/budgets').set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body[0].spent).toBe(0);
+  });
+
+  it('GET /budgets/:id returns an own budget with current-month spending', async () => {
+    const user = await createVerifiedUser('budget-get@example.com');
+    const token = signAccessToken({ userId: user.id, email: user.email });
+    const account = await createAccount(user.id);
+
+    const budget = await prisma.budget.create({
+      data: { userId: user.id, name: 'Fun', limitAmount: 80, categories: 'BAR,ENTERTAINMENT' },
+    });
+
+    const now = new Date();
+    await prisma.transaction.create({
+      data: {
+        userId: user.id,
+        accountId: account.id,
+        title: 'Cinema',
+        amount: 12.5,
+        type: 'expense',
+        category: 'ENTERTAINMENT',
+        date: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10)),
+      },
+    });
+
+    const response = await request(app)
+      .get(`/budgets/${budget.id}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      id: budget.id,
+      name: 'Fun',
+      limitAmount: 80,
+      categories: ['BAR', 'ENTERTAINMENT'],
+      spent: 12.5,
+    });
+  });
+
+  it('GET /budgets/:id returns 404 for another user\'s budget', async () => {
+    const owner = await createVerifiedUser('budget-get-owner@example.com');
+    const other = await createVerifiedUser('budget-get-other@example.com');
+    const token = signAccessToken({ userId: other.id, email: other.email });
+
+    const budget = await prisma.budget.create({
+      data: { userId: owner.id, name: 'Mine', limitAmount: 100, categories: 'FOOD' },
+    });
+
+    const response = await request(app)
+      .get(`/budgets/${budget.id}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Budget not found' });
+  });
+
+  it('GET /budgets/:id returns 400 for an invalid id', async () => {
+    const user = await createVerifiedUser('budget-get-invalid@example.com');
+    const token = signAccessToken({ userId: user.id, email: user.email });
+
+    const response = await request(app)
+      .get('/budgets/not-a-number')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid budget id' });
   });
 
   it('POST /budgets returns 401 without auth', async () => {

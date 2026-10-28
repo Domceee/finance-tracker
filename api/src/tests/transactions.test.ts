@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import app from '../app.js';
 import prisma from '../prisma.js';
+import { createAccount } from './helpers.js';
 
 async function createTestUser() {
   return prisma.user.create({
@@ -21,9 +22,13 @@ async function loginTestUser() {
     name: 'Test User',
   });
 
+  const user = response.body.user as { id: number; email: string; name: string | null };
+  const account = await createAccount(user.id);
+
   return {
     accessToken: response.body.accessToken as string,
-    user: response.body.user as { id: number; email: string; name: string | null },
+    user,
+    account,
   };
 }
 
@@ -63,7 +68,7 @@ describe.sequential('Transactions API', () => {
   });
 
   it('creates a transaction for the logged-in user', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     const response = await request(app)
       .post('/transactions')
@@ -75,6 +80,7 @@ describe.sequential('Transactions API', () => {
         category: 'FOOD',
         date: '2026-04-02T12:00:00.000Z',
         description: 'Weekly shopping',
+        accountId: account.id,
       });
 
     expect(response.status).toBe(201);
@@ -85,6 +91,7 @@ describe.sequential('Transactions API', () => {
       category: 'FOOD',
       description: 'Weekly shopping',
       userId: user.id,
+      accountId: account.id,
     });
     expect(response.body.id).toEqual(expect.any(Number));
   });
@@ -103,8 +110,47 @@ describe.sequential('Transactions API', () => {
     expect(response.body).toEqual({ error: 'Unauthorized' });
   });
 
+  it('rejects creating a transaction without an account', async () => {
+    const { accessToken } = await loginTestUser();
+
+    const response = await request(app)
+      .post('/transactions')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        title: 'Groceries',
+        amount: 24.5,
+        type: 'expense',
+        category: 'FOOD',
+        date: '2026-04-02T12:00:00.000Z',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Account is required' });
+  });
+
+  it('rejects creating a transaction in another user\'s account', async () => {
+    const { accessToken } = await loginTestUser();
+    const otherUser = await createTestUser();
+    const otherAccount = await createAccount(otherUser.id);
+
+    const response = await request(app)
+      .post('/transactions')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        title: 'Groceries',
+        amount: 24.5,
+        type: 'expense',
+        category: 'FOOD',
+        date: '2026-04-02T12:00:00.000Z',
+        accountId: otherAccount.id,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid account' });
+  });
+
   it('creates an income transaction with salary category automatically', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     const response = await request(app)
       .post('/transactions')
@@ -115,6 +161,7 @@ describe.sequential('Transactions API', () => {
         type: 'income',
         category: 'OTHER',
         date: '2026-04-02T12:00:00.000Z',
+        accountId: account.id,
       });
 
     expect(response.status).toBe(201);
@@ -128,7 +175,7 @@ describe.sequential('Transactions API', () => {
   });
 
   it('rejects salary as an expense category', async () => {
-    const { accessToken } = await loginTestUser();
+    const { accessToken, account } = await loginTestUser();
 
     const response = await request(app)
       .post('/transactions')
@@ -139,6 +186,7 @@ describe.sequential('Transactions API', () => {
         type: 'expense',
         category: 'SALARY',
         date: '2026-04-02T12:00:00.000Z',
+        accountId: account.id,
       });
 
     expect(response.status).toBe(400);
@@ -146,7 +194,7 @@ describe.sequential('Transactions API', () => {
   });
 
   it('rejects zero amount when creating a transaction', async () => {
-    const { accessToken } = await loginTestUser();
+    const { accessToken, account } = await loginTestUser();
 
     const response = await request(app)
       .post('/transactions')
@@ -157,6 +205,7 @@ describe.sequential('Transactions API', () => {
         type: 'expense',
         category: 'FOOD',
         date: '2026-04-02T12:00:00.000Z',
+        accountId: account.id,
       });
 
     expect(response.status).toBe(400);
@@ -164,8 +213,9 @@ describe.sequential('Transactions API', () => {
   });
 
   it('returns only the logged-in user transactions ordered by date descending', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
     const otherUser = await createTestUser();
+    const otherAccount = await createAccount(otherUser.id);
 
     await prisma.transaction.create({
       data: {
@@ -175,6 +225,7 @@ describe.sequential('Transactions API', () => {
         category: 'OTHER',
         date: new Date('2026-04-01T10:00:00.000Z'),
         userId: user.id,
+        accountId: account.id,
       },
     });
 
@@ -186,6 +237,7 @@ describe.sequential('Transactions API', () => {
         category: 'SALARY',
         date: new Date('2026-04-03T10:00:00.000Z'),
         userId: user.id,
+        accountId: account.id,
       },
     });
 
@@ -197,6 +249,7 @@ describe.sequential('Transactions API', () => {
         category: 'OTHER',
         date: new Date('2026-04-04T10:00:00.000Z'),
         userId: otherUser.id,
+        accountId: otherAccount.id,
       },
     });
 
@@ -210,8 +263,8 @@ describe.sequential('Transactions API', () => {
     expect(response.body[1].title).toBe('Older transaction');
   });
 
-  it('updates a transaction owned by the logged-in user', async () => {
-    const { accessToken, user } = await loginTestUser();
+  it('gets a transaction owned by the logged-in user', async () => {
+    const { accessToken, user, account } = await loginTestUser();
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -221,6 +274,70 @@ describe.sequential('Transactions API', () => {
         category: 'FOOD',
         date: new Date('2026-04-02T08:00:00.000Z'),
         userId: user.id,
+        accountId: account.id,
+      },
+    });
+
+    const response = await request(app)
+      .get(`/transactions/${transaction.id}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      id: transaction.id,
+      title: 'Coffee',
+      accountId: account.id,
+    });
+  });
+
+  it('returns 404 when getting another user\'s transaction', async () => {
+    const { accessToken } = await loginTestUser();
+    const otherUser = await createTestUser();
+    const otherAccount = await createAccount(otherUser.id);
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        title: 'Private',
+        amount: 3.5,
+        type: 'expense',
+        category: 'FOOD',
+        date: new Date('2026-04-02T08:00:00.000Z'),
+        userId: otherUser.id,
+        accountId: otherAccount.id,
+      },
+    });
+
+    const response = await request(app)
+      .get(`/transactions/${transaction.id}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Transaction not found' });
+  });
+
+  it('returns 400 for invalid get id', async () => {
+    const { accessToken } = await loginTestUser();
+
+    const response = await request(app)
+      .get('/transactions/not-a-number')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid transaction ID' });
+  });
+
+  it('updates a transaction owned by the logged-in user', async () => {
+    const { accessToken, user, account } = await loginTestUser();
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        title: 'Coffee',
+        amount: 3.5,
+        type: 'expense',
+        category: 'FOOD',
+        date: new Date('2026-04-02T08:00:00.000Z'),
+        userId: user.id,
+        accountId: account.id,
       },
     });
 
@@ -244,6 +361,57 @@ describe.sequential('Transactions API', () => {
     });
   });
 
+  it('moves a transaction to another account owned by the logged-in user', async () => {
+    const { accessToken, user, account } = await loginTestUser();
+    const savings = await createAccount(user.id, 'Savings');
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        title: 'Transfer',
+        amount: 50,
+        type: 'expense',
+        category: 'OTHER',
+        date: new Date('2026-04-02T08:00:00.000Z'),
+        userId: user.id,
+        accountId: account.id,
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/transactions/${transaction.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ accountId: savings.id });
+
+    expect(response.status).toBe(200);
+    expect(response.body.accountId).toBe(savings.id);
+  });
+
+  it('rejects moving a transaction to another user\'s account', async () => {
+    const { accessToken, user, account } = await loginTestUser();
+    const otherUser = await createTestUser();
+    const otherAccount = await createAccount(otherUser.id);
+
+    const transaction = await prisma.transaction.create({
+      data: {
+        title: 'Transfer',
+        amount: 50,
+        type: 'expense',
+        category: 'OTHER',
+        date: new Date('2026-04-02T08:00:00.000Z'),
+        userId: user.id,
+        accountId: account.id,
+      },
+    });
+
+    const response = await request(app)
+      .patch(`/transactions/${transaction.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ accountId: otherAccount.id });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid account' });
+  });
+
   it('returns 401 when updating a transaction without auth', async () => {
     const response = await request(app)
       .patch('/transactions/1')
@@ -254,7 +422,7 @@ describe.sequential('Transactions API', () => {
   });
 
   it('updates the category to salary automatically when type changes to income', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -264,6 +432,7 @@ describe.sequential('Transactions API', () => {
         category: 'SHOPPING',
         date: new Date('2026-04-02T08:00:00.000Z'),
         userId: user.id,
+        accountId: account.id,
       },
     });
 
@@ -284,7 +453,7 @@ describe.sequential('Transactions API', () => {
   });
 
   it('rejects salary when updating an expense category', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -294,6 +463,7 @@ describe.sequential('Transactions API', () => {
         category: 'EATOUT',
         date: new Date('2026-04-02T08:00:00.000Z'),
         userId: user.id,
+        accountId: account.id,
       },
     });
 
@@ -309,7 +479,7 @@ describe.sequential('Transactions API', () => {
   });
 
   it('rejects zero amount when updating a transaction', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -319,6 +489,7 @@ describe.sequential('Transactions API', () => {
         category: 'EATOUT',
         date: new Date('2026-04-02T08:00:00.000Z'),
         userId: user.id,
+        accountId: account.id,
       },
     });
 
@@ -334,7 +505,7 @@ describe.sequential('Transactions API', () => {
   });
 
   it('deletes a transaction owned by the logged-in user', async () => {
-    const { accessToken, user } = await loginTestUser();
+    const { accessToken, user, account } = await loginTestUser();
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -344,6 +515,7 @@ describe.sequential('Transactions API', () => {
         category: 'TRANSPORT',
         date: new Date('2026-04-02T09:00:00.000Z'),
         userId: user.id,
+        accountId: account.id,
       },
     });
 

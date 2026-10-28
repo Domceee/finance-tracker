@@ -7,6 +7,7 @@ import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mail.js';
 const router = Router();
 const VERIFICATION_CODE_LENGTH = 6;
 const VERIFICATION_EXPIRY_MS = 10 * 60 * 1000;
+const DEFAULT_ACCOUNT_NAME = 'Main';
 
 const SUPPORTED_CURRENCIES = new Set([
   'EUR', 'USD', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY',
@@ -96,6 +97,7 @@ router.post('/register', async (req, res) => {
         name: typeof name === 'string' ? name : null,
         verificationCode,
         verificationExpiresAt,
+        accounts: { create: { name: DEFAULT_ACCOUNT_NAME } },
       },
     });
   }
@@ -221,6 +223,7 @@ router.post('/dev-login', async (req, res) => {
         email,
         name: typeof name === 'string' ? name : null,
         googleId: `dev-${email}`,
+        accounts: { create: { name: DEFAULT_ACCOUNT_NAME } },
       },
     });
   }

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Budget } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -15,9 +16,35 @@ function parseCategories(raw: string): string[] {
 
 function getCurrentMonthRange() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   return { start, end };
+}
+
+async function buildBudgetResponse(budget: Budget) {
+  const { start, end } = getCurrentMonthRange();
+  const categories = parseCategories(budget.categories);
+
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      userId: budget.userId,
+      type: 'expense',
+      category: { in: categories as any },
+      date: { gte: start, lt: end },
+    },
+    select: { amount: true },
+  });
+
+  const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
+
+  return {
+    id: budget.id,
+    name: budget.name,
+    limitAmount: budget.limitAmount,
+    categories,
+    spent: Math.round(spent * 100) / 100,
+    createdAt: budget.createdAt,
+  };
 }
 
 router.get('/', requireAuth, async (req, res) => {
@@ -27,7 +54,7 @@ router.get('/', requireAuth, async (req, res) => {
   const [budgets, transactions] = await Promise.all([
     prisma.budget.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
     prisma.transaction.findMany({
-      where: { userId, type: 'expense', date: { gte: start, lte: end } },
+      where: { userId, type: 'expense', date: { gte: start, lt: end } },
       select: { category: true, amount: true },
     }),
   ]);
@@ -49,6 +76,23 @@ router.get('/', requireAuth, async (req, res) => {
   });
 
   return res.json(result);
+});
+
+router.get('/:id', requireAuth, async (req, res) => {
+  const userId = req.user!.userId;
+  const id = Number(req.params.id);
+
+  if (!Number.isInteger(id)) {
+    return res.status(400).json({ error: 'Invalid budget id' });
+  }
+
+  const budget = await prisma.budget.findUnique({ where: { id } });
+
+  if (!budget || budget.userId !== userId) {
+    return res.status(404).json({ error: 'Budget not found' });
+  }
+
+  return res.json(await buildBudgetResponse(budget));
 });
 
 router.post('/', requireAuth, async (req, res) => {
@@ -134,29 +178,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
     },
   });
 
-  const { start, end } = getCurrentMonthRange();
-  const parsedCategories = parseCategories(updated.categories);
-
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      userId,
-      type: 'expense',
-      category: { in: parsedCategories as any },
-      date: { gte: start, lte: end },
-    },
-    select: { amount: true },
-  });
-
-  const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
-
-  return res.json({
-    id: updated.id,
-    name: updated.name,
-    limitAmount: updated.limitAmount,
-    categories: parsedCategories,
-    spent: Math.round(spent * 100) / 100,
-    createdAt: updated.createdAt,
-  });
+  return res.json(await buildBudgetResponse(updated));
 });
 
 router.delete('/:id', requireAuth, async (req, res) => {

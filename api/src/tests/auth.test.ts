@@ -11,6 +11,7 @@ import { signAccessToken, signRefreshToken } from '../lib/jwt.js';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../lib/mail.js';
 import { hashPassword } from '../lib/password.js';
 import prisma from '../prisma.js';
+import { createAccount } from './helpers.js';
 
 const mockedSendVerificationEmail = vi.mocked(sendVerificationEmail);
 const mockedSendPasswordResetEmail = vi.mocked(sendPasswordResetEmail);
@@ -920,10 +921,12 @@ describe.sequential('Auth API', () => {
   it('DELETE /auth/account cascades to user transactions', async () => {
     const user = await createVerifiedUser('delete-cascade@example.com');
     const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const account = await createAccount(user.id);
 
     await prisma.transaction.create({
       data: {
         userId: user.id,
+        accountId: account.id,
         title: 'Test',
         amount: 10,
         type: 'expense',
