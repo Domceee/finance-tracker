@@ -1,15 +1,15 @@
 import 'dotenv/config';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
-const databaseUrl = process.env.SQLITE_DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-    throw new Error('Missing SQLITE_DATABASE_URL in api/.env');
+    throw new Error('Missing DATABASE_URL in api/.env');
 }
 
-const adapter = new PrismaBetterSqlite3({
-    url: databaseUrl,
+const adapter = new PrismaPg({
+    connectionString: databaseUrl,
 });
 
 const prisma = new PrismaClient({

@@ -19,19 +19,20 @@
   "license": "ISC",
   "dependencies": {
     "@google/genai": "^1.48.0",
-    "@prisma/adapter-better-sqlite3": "^7.5.0",
+    "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "@types/nodemailer": "^7.0.11",
-    "better-sqlite3": "^12.8.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
     "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^8.0.4"
+    "nodemailer": "^8.0.4",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.5.0",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.0",
     "dotenv": "^17.4.0",
     "prisma": "^7.5.0",
