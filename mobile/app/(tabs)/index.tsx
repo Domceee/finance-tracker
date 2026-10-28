@@ -22,14 +22,10 @@ import {
   EXPENSE_TRANSACTION_CATEGORIES,
   TransactionCategory,
 } from '../../lib/api';
+import { formatCategoryLabel } from '../../lib/format';
 import { useAuth } from '../../providers/auth-provider';
 import { useCurrency } from '../../providers/currency-provider';
 import { AppPalette } from '../../constants/theme';
-
-function formatCategoryLabel(category: TransactionCategory) {
-  if (category === 'EATOUT') return 'Eat Out';
-  return category.charAt(0) + category.slice(1).toLowerCase();
-}
 
 function progressColor(spent: number, limit: number) {
   const pct = limit > 0 ? spent / limit : 0;

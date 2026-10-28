@@ -67,6 +67,12 @@ export default function LoginScreen() {
           onPress={() => router.push('/register')}>
           <Text style={styles.secondaryButtonText}>Need an account? Register</Text>
         </Pressable>
+
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => router.push('/guest')}>
+          <Text style={styles.guestButtonText}>Continue as guest</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -117,6 +123,10 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: AppPalette.text,
+    fontWeight: '600',
+  },
+  guestButtonText: {
+    color: AppPalette.accent,
     fontWeight: '600',
   },
   errorText: {

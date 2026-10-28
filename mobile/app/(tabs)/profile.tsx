@@ -13,9 +13,10 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 import { useAuth } from '../../providers/auth-provider';
 import { useCurrency } from '../../providers/currency-provider';
-import { changePassword, updateProfile, deleteAccount, SUPPORTED_CURRENCIES } from '../../lib/api';
+import { changePassword, updateProfile, deleteUserAccount, SUPPORTED_CURRENCIES } from '../../lib/api';
 import { AppPalette } from '../../constants/theme';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
@@ -294,7 +295,7 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async() => {
             try {
-              await deleteAccount();
+              await deleteUserAccount();
               await logout();
             } catch (err) {
               Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete account');
@@ -319,9 +320,17 @@ export default function ProfileScreen() {
         />
         <Text style={styles.name}>{user.name ?? 'No name set'}</Text>
         <Text style={styles.email}>{user.email}</Text>
+        {user.role === 'ADMIN' ? <Text style={styles.roleBadge}>Admin</Text> : null}
       </View>
 
       <View style={styles.section}>
+        {user.role === 'ADMIN' ? (
+          <Pressable style={styles.actionButton} onPress={() => router.push('/admin/users')}>
+            <Text style={styles.actionButtonText}>Manage Users</Text>
+            <Text style={styles.actionButtonValue}>Admin</Text>
+          </Pressable>
+        ) : null}
+
         <Pressable style={styles.actionButton} onPress={() => setShowChangePassword(true)}>
           <Text style={styles.actionButtonText}>Change Password</Text>
         </Pressable>
@@ -447,6 +456,17 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 14,
     color: AppPalette.accent,
+  },
+  roleBadge: {
+    marginTop: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: AppPalette.elevated,
+    color: AppPalette.accent,
+    fontSize: 12,
+    fontWeight: '700',
+    overflow: 'hidden',
   },
   section: {
     gap: 12,

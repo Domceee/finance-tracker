@@ -1,21 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, Modal, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import {
   createTransaction,
   EXPENSE_TRANSACTION_CATEGORIES,
+  getAccounts,
+  type Account,
   TransactionCategory,
 } from '../lib/api';
+import { formatCategoryLabel } from '../lib/format';
 import { useCurrency } from '../providers/currency-provider';
 import { AppPalette } from '../constants/theme';
-
-function formatCategoryLabel(category: TransactionCategory) {
-  if (category === 'EATOUT') {
-    return 'Eat Out';
-  }
-
-  return category.charAt(0) + category.slice(1).toLowerCase();
-}
 
 export default function AddTransactionScreen() {
   const { currency, toEur } = useCurrency();
@@ -25,8 +20,26 @@ export default function AddTransactionScreen() {
   const [category, setCategory] = useState<TransactionCategory>('OTHER');
   const [description, setDescription] = useState('');
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountId, setAccountId] = useState<number | null>(null);
+
+  useEffect(() => {
+    getAccounts()
+      .then((data) => {
+        setAccounts(data);
+        setAccountId(data[0]?.id ?? null);
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Failed to load accounts');
+      });
+  }, []);
 
   async function handleSubmit() {
+    if (accountId === null) {
+      Alert.alert('Error', 'Create an account first in the Accounts tab');
+      return;
+    }
+
     try {
       await createTransaction({
         title,
@@ -35,6 +48,7 @@ export default function AddTransactionScreen() {
         category: type === 'income' ? 'SALARY' : category,
         date: new Date().toISOString(),
         description,
+        accountId,
       });
 
       Alert.alert('Success', 'Transaction created successfully');
@@ -77,6 +91,28 @@ export default function AddTransactionScreen() {
         value={description}
         onChangeText={setDescription}
       />
+
+      <Text style={styles.categoryLabel}>Account</Text>
+      <View style={styles.accountRow}>
+        {accounts.length === 0 ? (
+          <Text style={styles.noAccountsText}>No accounts yet. Add one in the Accounts tab.</Text>
+        ) : (
+          accounts.map((account) => (
+            <Pressable
+              key={account.id}
+              style={[styles.accountChip, account.id === accountId && styles.activeButton]}
+              onPress={() => setAccountId(account.id)}>
+              <Text
+                style={[
+                  styles.accountChipText,
+                  account.id === accountId && styles.activeCategoryOptionText,
+                ]}>
+                {account.name}
+              </Text>
+            </Pressable>
+          ))
+        )}
+      </View>
 
       <View style={styles.typeRow}>
         <Pressable
@@ -198,6 +234,27 @@ const styles = StyleSheet.create({
   typeRow: {
     flexDirection: 'row',
     marginBottom: 16,
+  },
+  accountRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  accountChip: {
+    backgroundColor: AppPalette.surface,
+    borderWidth: 1,
+    borderColor: AppPalette.muted,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  accountChipText: {
+    color: AppPalette.text,
+    fontWeight: '600',
+  },
+  noAccountsText: {
+    color: AppPalette.muted,
   },
   typeButton: {
     flex: 1,

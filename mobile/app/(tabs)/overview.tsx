@@ -11,6 +11,7 @@ import {
   OverviewInsights,
   TransactionCategory,
 } from '../../lib/api';
+import { formatCategoryLabel } from '../../lib/format';
 import { useCurrency } from '../../providers/currency-provider';
 
 const CHART_COLORS: Record<TransactionCategory, string> = {
@@ -53,15 +54,6 @@ function getNextMonth(selection: MonthSelection): MonthSelection {
   }
 
   return { year: selection.year, month: selection.month + 1 };
-}
-
-function formatCategoryLabel(category: TransactionCategory) {
-  switch (category) {
-    case 'EATOUT':
-      return 'Eat Out';
-    default:
-      return category.charAt(0) + category.slice(1).toLowerCase();
-  }
 }
 
 function getMonthLabel(year: number, month: number) {

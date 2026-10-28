@@ -15,6 +15,45 @@ export type Transaction = {
   date: string;
   description?: string | null;
   userId: number;
+  accountId: number;
+};
+
+export const ACCOUNT_TYPES = ['CARD', 'CASH', 'SAVINGS', 'OTHER'] as const;
+
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+export type Account = {
+  id: number;
+  name: string;
+  type: AccountType;
+  userId: number;
+  createdAt: string;
+  balance: number;
+};
+
+type AccountInput = {
+  name: string;
+  type: AccountType;
+};
+
+export type Note = {
+  id: number;
+  transactionId: number;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Role = 'USER' | 'ADMIN';
+
+export type AdminUser = {
+  id: number;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+  currency: string;
+  role: Role;
+  isVerified: boolean;
 };
 
 export const TRANSACTION_CATEGORIES = [
@@ -67,7 +106,7 @@ export type AuthUser = {
   name: string | null;
   avatarUrl?: string | null;
   currency: string;
-  role: 'USER' | 'ADMIN';
+  role: Role;
 };
 
 export const SUPPORTED_CURRENCIES = [
@@ -92,6 +131,7 @@ type CreateTransactionInput = {
   category: TransactionCategory;
   date: string;
   description?: string;
+  accountId: number;
 };
 
 type RegisterStartResponse = {
@@ -195,6 +235,174 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
   }
 
   return response.json();
+}
+
+export async function getTransaction(id: number): Promise<Transaction> {
+  const response = await apiFetch(`/transactions/${id}`);
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch transaction'));
+  }
+
+  return response.json();
+}
+
+export async function getAccounts(): Promise<Account[]> {
+  const response = await apiFetch('/accounts');
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch accounts'));
+  }
+
+  return response.json();
+}
+
+export async function getAccount(id: number): Promise<Account> {
+  const response = await apiFetch(`/accounts/${id}`);
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch account'));
+  }
+
+  return response.json();
+}
+
+export async function createAccount(input: AccountInput): Promise<Account> {
+  const response = await apiFetch('/accounts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to create account'));
+  }
+
+  return response.json();
+}
+
+export async function updateAccount(id: number, input: Partial<AccountInput>): Promise<Account> {
+  const response = await apiFetch(`/accounts/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to update account'));
+  }
+
+  return response.json();
+}
+
+export async function deleteAccount(id: number): Promise<void> {
+  const response = await apiFetch(`/accounts/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to delete account'));
+  }
+}
+
+export async function getAccountTransactions(id: number): Promise<Transaction[]> {
+  const response = await apiFetch(`/accounts/${id}/transactions`);
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch account transactions'));
+  }
+
+  return response.json();
+}
+
+export async function getTransactionNotes(transactionId: number): Promise<Note[]> {
+  const response = await apiFetch(`/transactions/${transactionId}/notes`);
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch notes'));
+  }
+
+  return response.json();
+}
+
+export async function createNote(transactionId: number, content: string): Promise<Note> {
+  const response = await apiFetch(`/transactions/${transactionId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to add note'));
+  }
+
+  return response.json();
+}
+
+export async function updateNote(id: number, content: string): Promise<Note> {
+  const response = await apiFetch(`/notes/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to update note'));
+  }
+
+  return response.json();
+}
+
+export async function deleteNote(id: number): Promise<void> {
+  const response = await apiFetch(`/notes/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to delete note'));
+  }
+}
+
+export async function getCategories(): Promise<TransactionCategory[]> {
+  const response = await apiFetch('/categories', { auth: false });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch categories'));
+  }
+
+  return response.json();
+}
+
+export async function getAdminUsers(): Promise<AdminUser[]> {
+  const response = await apiFetch('/admin/users');
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch users'));
+  }
+
+  return response.json();
+}
+
+export async function updateAdminUser(
+  id: number,
+  input: { role?: Role; name?: string },
+): Promise<AdminUser> {
+  const response = await apiFetch(`/admin/users/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to update user'));
+  }
+
+  return response.json();
+}
+
+export async function deleteAdminUser(id: number): Promise<void> {
+  const response = await apiFetch(`/admin/users/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to delete user'));
+  }
 }
 
 export async function getOverview(year?: number, month?: number): Promise<Overview> {
@@ -313,7 +521,7 @@ export async function deleteBudget(id: number): Promise<void> {
 }
 
 export async function getRates(): Promise<RatesResponse> {
-  const response = await apiFetch('/rates');
+  const response = await apiFetch('/rates', { auth: false });
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch exchange rates'));
@@ -357,7 +565,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
-export async function deleteAccount(): Promise<void> {
+export async function deleteUserAccount(): Promise<void> {
   const response = await apiFetch('/auth/account', {
     method: 'DELETE',
   });

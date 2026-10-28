@@ -5,6 +5,16 @@ import { CurrencyProvider } from '../providers/currency-provider';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
+const PUBLIC_ROUTES = new Set([
+  'login',
+  'register',
+  'verify-email',
+  'forgot-password',
+  'reset-password',
+  'guest',
+]);
+const AUTH_ROUTES = new Set(['login', 'register', 'verify-email']);
+
 function AppNavigation() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -15,18 +25,13 @@ function AppNavigation() {
       return;
     }
 
-    const currentRoute = segments[0];
-    const inTabsGroup = currentRoute === '(tabs)';
-    const inAuthScreen =
-      currentRoute === 'login' ||
-      currentRoute === 'register' ||
-      currentRoute === 'verify-email';
+    const currentRoute = segments[0] ?? '';
 
-    if (!isAuthenticated && (inTabsGroup || currentRoute === 'add-transaction')) {
+    if (!isAuthenticated && !PUBLIC_ROUTES.has(currentRoute)) {
       router.replace('/login');
     }
 
-    if (isAuthenticated && inAuthScreen) {
+    if (isAuthenticated && AUTH_ROUTES.has(currentRoute)) {
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading, router, segments]);
@@ -48,7 +53,6 @@ function AppNavigation() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" />
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
     </Stack>
   )
 }

@@ -1,17 +1,10 @@
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { getTransactions, Transaction, TransactionCategory } from '@/lib/api';
+import { getTransactions, Transaction } from '@/lib/api';
+import { formatCategoryLabel } from '@/lib/format';
 import { useCurrency } from '../../providers/currency-provider';
 import { AppPalette } from '../../constants/theme';
-
-function formatCategoryLabel(category: TransactionCategory) {
-  if (category === 'EATOUT') {
-    return 'Eat Out';
-  }
-
-  return category.charAt(0) + category.slice(1).toLowerCase();
-}
 
 export default function TransactionsScreen() {
   const { formatCurrency } = useCurrency();
@@ -56,7 +49,7 @@ export default function TransactionsScreen() {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
-          <Pressable style={styles.card}>
+          <Pressable style={styles.card} onPress={() => router.push({ pathname: '/transaction/[id]', params: { id: String(item.id) } })}>
             <View>
               <Text style={styles.itemTitle}>{item.title}</Text>
               <Text style={styles.itemSubtitle}>
