@@ -4,7 +4,7 @@ Projekto tikslas – sukurti asmeninių finansų valdymo programėlę, kurioje n
 Veikimo principas – projektą sudarys trys dalys:
 -	Mobilioji ir internetinė aplikacija, kurią naudos svečiai, naudotojai ir administratoriai;
 -	Serverinė dalis, kurioje bus visos aplikacijos programavimo sąsajos (API);
--	Duomenų bazė, kurioje bus saugoma visa naudotojų, sąskaitų, operacijų ir pastabų informacija.
+-	Duomenų bazė, kurioje bus saugoma visa naudotojų, sąskaitų, transakcijų ir pastabų informacija.
 
 ## Funkciniai reikalavimai
 __Svečias__ galės:
@@ -23,7 +23,7 @@ __Registruotas sistemos naudotojas__ galės:
     -	Peržiūrėti sąskaitą ir jos likutį;
     -	Pašalinti sąskaitą;
     -	Peržiūrėti visų sąskaitų sąrašą.
--	Valdyti operacijas:
+-	Valdyti transakcijas:
     -	Sukurti transakciją (pajamas arba išlaidas);
     -	Redaguoti transakciją;
     -	Peržiūrėti transakciją;
