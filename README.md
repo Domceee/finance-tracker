@@ -12,7 +12,7 @@ __Svečias__ galės:
 -	Prisijungti prie sistemos;
 -	Atkurti pamirštą slaptažodį;
 -	Peržiūrėti valiutų kursus;
--	Peržiūrėti operacijų kategorijų sąrašą.
+-	Peržiūrėti transakcijų kategorijų sąrašą.
 
 __Registruotas sistemos naudotojas__ galės:
 -	Atlikti visus veiksmus kaip ir svečias;
@@ -24,18 +24,18 @@ __Registruotas sistemos naudotojas__ galės:
     -	Pašalinti sąskaitą;
     -	Peržiūrėti visų sąskaitų sąrašą.
 -	Valdyti operacijas:
-    -	Sukurti operaciją (pajamas arba išlaidas);
-    -	Redaguoti operaciją;
-    -	Peržiūrėti operaciją;
-    -	Pašalinti operaciją;
-    -	Peržiūrėti visų operacijų sąrašą;
-    -	Peržiūrėti visų konkrečios sąskaitos operacijų sąrašą.
+    -	Sukurti transakciją (pajamas arba išlaidas);
+    -	Redaguoti transakciją;
+    -	Peržiūrėti transakciją;
+    -	Pašalinti transakciją;
+    -	Peržiūrėti visų transakcijų sąrašą;
+    -	Peržiūrėti visų konkrečios sąskaitos transakcijų sąrašą.
 -	Valdyti pastabas:
-    -	Sukurti pastabą operacijai;
+    -	Sukurti pastabą transakcijai;
     -	Redaguoti pastabą;
     -	Peržiūrėti pastabą;
     -	Pašalinti pastabą;
-    -	Peržiūrėti visų konkrečios operacijos pastabų sąrašą.
+    -	Peržiūrėti visų konkrečios transakcijos pastabų sąrašą.
 -	Valdyti mėnesio biudžetus pagal išlaidų kategorijas;
 -	Peržiūrėti mėnesio pajamų ir išlaidų apžvalgą pagal kategorijas;
 -	Gauti dirbtinio intelekto sugeneruotas mėnesio išlaidų įžvalgas;
