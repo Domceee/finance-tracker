@@ -1,0 +1,1730 @@
+openapi: 3.0.3
+info:
+  title: Finance Tracker API
+  version: 1.0.0
+  description: |
+    REST API for the "Finance Tracker" personal finance application.
+
+    Supports registration with email verification, JWT authentication with rotating
+    refresh tokens, accounts, transactions, notes, budgets, monthly overviews,
+    AI-generated spending insights, exchange rates and admin user management.
+
+    **Roles**
+    - **Guest** (no token): can register, log in, reset a password and read the public
+      endpoints.
+    - **USER**: manages their own accounts, transactions, notes and budgets.
+    - **ADMIN**: everything a user can do, plus user management under `/admin`.
+
+servers:
+  - url: https://{apiHost}
+    description: Production (Vercel)
+    variables:
+      apiHost:
+        default: your-api.vercel.app
+        description: Host name of the deployed API
+  - url: http://localhost:3000
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Accounts
+  - name: Transactions
+  - name: Notes
+  - name: Budgets
+  - name: Overview
+  - name: AI
+  - name: Public
+  - name: Admin
+
+paths:
+  # ---------------- HEALTH ----------------
+
+  /:
+    get:
+      tags: [Health]
+      summary: Check that the API is running
+      security: []
+      responses:
+        "200":
+          description: API is running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Backend is running
+
+  # ---------------- AUTH ----------------
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user and send an email verification code
+      description: |
+        Creates an unverified user with a default "Main" account and emails a 6-digit
+        code valid for 10 minutes. Registering again with an unverified email
+        replaces the password and sends a new code. Rate limited to 10 requests
+        per 15 minutes per IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              email: jonas@example.com
+              password: secret123
+              name: Jonas
+      responses:
+        "201":
+          description: Verification code sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Verification code sent
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: A verified user with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: User already exists
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify the email code and sign in
+      description: Rate limited to 10 requests per 15 minutes per IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailRequest"
+            example:
+              email: jonas@example.com
+              code: "482913"
+      responses:
+        "200":
+          description: Email verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Missing, expired or invalid code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Invalid verification code
+        "404":
+          description: No user with this email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Verification request not found
+        "409":
+          description: Account is already verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Account is already verified
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in with email and password
+      description: Rate limited to 10 requests per 15 minutes per IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: jonas@example.com
+              password: secret123
+      responses:
+        "200":
+          description: Logged in, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Wrong email or password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Invalid email or password
+        "403":
+          description: Email is not verified yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Please verify your email before signing in
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new token pair
+      description: |
+        The used refresh token is invalidated (rotation); reusing it returns 401.
+        Rate limited to 60 requests per 15 minutes per IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        "200":
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Refresh token is invalid, already used or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Invalid refresh token
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out (invalidate a refresh token)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        "204":
+          description: Logged out
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/profile:
+    patch:
+      tags: [Auth]
+      summary: Update the current user's avatar or display currency
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+            example:
+              currency: USD
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid avatar URL or unsupported currency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Invalid currency code
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Send a password reset code
+      description: |
+        Always returns 200 so the response does not reveal whether the email is
+        registered. A 6-digit code valid for 10 minutes is emailed to verified users.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+            example:
+              email: jonas@example.com
+      responses:
+        "200":
+          description: Request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: A reset code has been sent to recipient
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password using the reset code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+            example:
+              email: jonas@example.com
+              code: "193847"
+              newPassword: newSecret456
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Password reset successfully
+        "400":
+          description: Missing fields, short password, or invalid/expired code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Invalid or expired reset code
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change the current user's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+            example:
+              currentPassword: secret123
+              newPassword: newSecret456
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+              example:
+                message: Password updated successfully
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Not authenticated, or the current password is wrong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Current password is incorrect
+
+  /auth/account:
+    delete:
+      tags: [Auth]
+      summary: Delete the current user and all of their data
+      responses:
+        "204":
+          description: User deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------- ACCOUNTS ----------------
+
+  /accounts:
+    get:
+      tags: [Accounts]
+      summary: List the current user's accounts with balances
+      responses:
+        "200":
+          description: Accounts, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Accounts]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+            example:
+              name: Revolut
+              type: CARD
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          description: Missing name or invalid type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Name is required
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /accounts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      tags: [Accounts]
+      summary: Get an account
+      responses:
+        "200":
+          description: Account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Accounts]
+      summary: Update an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountRequest"
+            example:
+              name: Savings
+              type: SAVINGS
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Accounts]
+      summary: Delete an account with all its transactions and notes
+      responses:
+        "204":
+          description: Account deleted
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /accounts/{id}/transactions:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      tags: [Accounts, Transactions]
+      summary: List an account's transactions
+      responses:
+        "200":
+          description: Transactions, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------- TRANSACTIONS ----------------
+
+  /transactions:
+    get:
+      tags: [Transactions]
+      summary: List all of the current user's transactions
+      responses:
+        "200":
+          description: Transactions, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Transactions]
+      summary: Create a transaction in one of the user's accounts
+      description: |
+        Income transactions always get the `SALARY` category; expense transactions
+        need any category except `SALARY`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionRequest"
+            example:
+              title: Groceries
+              amount: 42.5
+              type: expense
+              category: FOOD
+              date: "2026-11-14T10:00:00.000Z"
+              description: Weekly shopping
+              accountId: 1
+      responses:
+        "201":
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Zero amount, missing or foreign account, or invalid category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Invalid transaction category
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /transactions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/TransactionId"
+    get:
+      tags: [Transactions]
+      summary: Get a transaction
+      responses:
+        "200":
+          description: Transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Transactions]
+      summary: Update a transaction
+      description: Only the fields sent are changed. Switching to `income` sets the category to `SALARY`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTransactionRequest"
+            example:
+              amount: 39.99
+              category: SHOPPING
+      responses:
+        "200":
+          description: Updated transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Invalid ID, zero amount, foreign account or invalid category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Amount cannot be 0
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Transactions]
+      summary: Delete a transaction and its notes
+      responses:
+        "204":
+          description: Transaction deleted
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /transactions/{id}/notes:
+    parameters:
+      - $ref: "#/components/parameters/TransactionId"
+    get:
+      tags: [Transactions, Notes]
+      summary: List a transaction's notes
+      responses:
+        "200":
+          description: Notes, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Transactions, Notes]
+      summary: Add a note to a transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteContentRequest"
+            example:
+              content: Split with Ona, she owes me half
+      responses:
+        "201":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          description: Invalid ID or empty content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Content is required
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------- NOTES ----------------
+
+  /notes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    get:
+      tags: [Notes]
+      summary: Get a note
+      responses:
+        "200":
+          description: Note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Notes]
+      summary: Edit a note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteContentRequest"
+            example:
+              content: Ona paid me back
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+        "400":
+          description: Invalid ID or empty content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Content is required
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Notes]
+      summary: Delete a note
+      responses:
+        "204":
+          description: Note deleted
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------- BUDGETS ----------------
+
+  /budgets:
+    get:
+      tags: [Budgets]
+      summary: List budgets with the amount spent this month
+      responses:
+        "200":
+          description: Budgets, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Budget"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Budgets]
+      summary: Create a monthly budget for one or more categories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBudgetRequest"
+            example:
+              name: Going out
+              limitAmount: 150
+              categories: [BAR, EATOUT, ENTERTAINMENT]
+      responses:
+        "201":
+          description: Budget created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+        "400":
+          description: Missing name, non-positive limit or invalid categories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Invalid category: COFFEE"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /budgets/{id}:
+    parameters:
+      - $ref: "#/components/parameters/BudgetId"
+    get:
+      tags: [Budgets]
+      summary: Get a budget
+      responses:
+        "200":
+          description: Budget
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Budgets]
+      summary: Update a budget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBudgetRequest"
+            example:
+              limitAmount: 200
+      responses:
+        "200":
+          description: Updated budget
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Budget"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Budgets]
+      summary: Delete a budget
+      responses:
+        "204":
+          description: Budget deleted
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------------- OVERVIEW ----------------
+
+  /overview:
+    get:
+      tags: [Overview]
+      summary: Get income, spending and category breakdown for a month
+      description: |
+        Defaults to the current UTC month. The current month is always calculated
+        live; past months are stored as a snapshot the first time they are requested.
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+            example: 2026
+        - name: month
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            example: 10
+      responses:
+        "200":
+          description: Monthly overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Overview"
+        "400":
+          description: Invalid year or month
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Invalid year or month
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------- AI ----------------
+
+  /ai/overview-insights:
+    post:
+      tags: [AI]
+      summary: Get AI-generated insights for a month's spending
+      description: |
+        Uses Google Gemini. The result is cached per month and regenerated only
+        when the month's totals change. Rate limited to 20 requests per hour per IP.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/YearMonthRequest"
+            example:
+              year: 2026
+              month: 10
+      responses:
+        "200":
+          description: Insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OverviewInsightsResponse"
+        "400":
+          description: Invalid year or month
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Invalid year or month
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          description: AI service is not configured or failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Failed to generate overview insights
+
+  /ai/ask:
+    post:
+      tags: [AI]
+      summary: Send a free-form prompt to the AI model
+      description: Rate limited to 20 requests per hour per IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskRequest"
+            example:
+              prompt: How can I spend less on eating out?
+      responses:
+        "200":
+          description: AI answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AskResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          description: AI service is not configured or failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Failed to get AI response
+
+  # ---------------- PUBLIC ----------------
+
+  /categories:
+    get:
+      tags: [Public]
+      summary: List transaction categories
+      security: []
+      responses:
+        "200":
+          description: All categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TransactionCategory"
+
+  /rates:
+    get:
+      tags: [Public]
+      summary: Get exchange rates with EUR as the base currency
+      description: Rates are fetched from ExchangeRate-API and cached for 24 hours.
+      security: []
+      responses:
+        "200":
+          description: Exchange rates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RatesResponse"
+        "502":
+          description: The exchange rate provider failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Failed to fetch exchange rates
+        "503":
+          description: Exchange rates are not configured on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: Exchange rate service is not configured
+
+  # ---------------- ADMIN ----------------
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List all users (admin only)
+      responses:
+        "200":
+          description: Users, by ID
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/users/{id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Admin]
+      summary: Get a user (admin only)
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          $ref: "#/components/responses/InvalidId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Admin]
+      summary: Change a user's role or name (admin only)
+      description: An admin cannot change their own role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateUserRequest"
+            example:
+              role: ADMIN
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          description: Invalid ID, role or name, or an attempt to change one's own role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: You cannot change your own role
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Admin]
+      summary: Delete a user and all of their data (admin only)
+      description: An admin cannot delete their own account here.
+      responses:
+        "204":
+          description: User deleted
+        "400":
+          description: Invalid ID, or an attempt to delete oneself
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: You cannot delete your own account here
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      description: Account ID
+      schema:
+        type: integer
+    TransactionId:
+      name: id
+      in: path
+      required: true
+      description: Transaction ID
+      schema:
+        type: integer
+    NoteId:
+      name: id
+      in: path
+      required: true
+      description: Note ID
+      schema:
+        type: integer
+    BudgetId:
+      name: id
+      in: path
+      required: true
+      description: Budget ID
+      schema:
+        type: integer
+    UserId:
+      name: id
+      in: path
+      required: true
+      description: User ID
+      schema:
+        type: integer
+
+  responses:
+    BadRequest:
+      description: Missing or invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Email is required
+    InvalidId:
+      description: The ID in the path is not a valid number
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Invalid account ID
+    Unauthorized:
+      description: Missing, invalid or expired access token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Unauthorized
+    Forbidden:
+      description: The user is not an admin
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Forbidden
+    NotFound:
+      description: The resource does not exist or belongs to another user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Account not found
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: Too many attempts, please try again later
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    Role:
+      type: string
+      enum: [USER, ADMIN]
+
+    AccountType:
+      type: string
+      enum: [CARD, CASH, SAVINGS, OTHER]
+
+    TransactionCategory:
+      type: string
+      enum: [FOOD, SHOPPING, RENT, TRANSPORT, SALARY, ENTERTAINMENT, BAR, EATOUT, OTHER]
+
+    TransactionType:
+      type: string
+      enum: [income, expense]
+
+    Currency:
+      type: string
+      description: ISO 4217 code
+      enum: [EUR, USD, GBP, JPY, CAD, AUD, CHF, CNY, SEK, NOK, DKK, PLN, CZK, HUF, RON, HRK,
+             TRY, BRL, INR, KRW, SGD, HKD, NZD, MXN, ZAR, AED, SAR, ILS, RUB, UAH]
+
+    # ----- Auth -----
+
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        name:
+          type: string
+
+    VerifyEmailRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required: [email, code, newPassword]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+        newPassword:
+          type: string
+          minLength: 6
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 6
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        avatarUrl:
+          type: string
+          format: uri
+        currency:
+          $ref: "#/components/schemas/Currency"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        currency:
+          $ref: "#/components/schemas/Currency"
+        role:
+          $ref: "#/components/schemas/Role"
+      example:
+        id: 7
+        email: jonas@example.com
+        name: Jonas
+        avatarUrl: null
+        currency: EUR
+        role: USER
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT, valid for 15 minutes
+        refreshToken:
+          type: string
+          description: JWT, valid for 30 days, single use
+        user:
+          $ref: "#/components/schemas/User"
+
+    # ----- Accounts -----
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        type:
+          $ref: "#/components/schemas/AccountType"
+        createdAt:
+          type: string
+          format: date-time
+        balance:
+          type: number
+          description: Income minus expenses in EUR, rounded to 2 decimals
+      example:
+        id: 1
+        userId: 7
+        name: Main
+        type: CARD
+        createdAt: "2026-10-28T18:00:00.000Z"
+        balance: 1250.4
+
+    CreateAccountRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          $ref: "#/components/schemas/AccountType"
+
+    UpdateAccountRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          $ref: "#/components/schemas/AccountType"
+
+    # ----- Transactions -----
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        amount:
+          type: number
+          description: Amount in EUR
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          $ref: "#/components/schemas/TransactionCategory"
+        date:
+          type: string
+          format: date-time
+        description:
+          type: string
+          nullable: true
+        userId:
+          type: integer
+        accountId:
+          type: integer
+      example:
+        id: 15
+        title: Groceries
+        amount: 42.5
+        type: expense
+        category: FOOD
+        date: "2026-11-14T10:00:00.000Z"
+        description: Weekly shopping
+        userId: 7
+        accountId: 1
+
+    CreateTransactionRequest:
+      type: object
+      required: [title, amount, type, date, accountId]
+      properties:
+        title:
+          type: string
+        amount:
+          type: number
+          description: Amount in EUR, must not be 0
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          $ref: "#/components/schemas/TransactionCategory"
+        date:
+          type: string
+          format: date-time
+        description:
+          type: string
+        accountId:
+          type: integer
+          description: Must be one of the current user's accounts
+
+    UpdateTransactionRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        amount:
+          type: number
+          description: Amount in EUR, must not be 0
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        category:
+          $ref: "#/components/schemas/TransactionCategory"
+        date:
+          type: string
+          format: date-time
+        description:
+          type: string
+        accountId:
+          type: integer
+
+    # ----- Notes -----
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: integer
+        transactionId:
+          type: integer
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: 3
+        transactionId: 15
+        content: Split with Ona, she owes me half
+        createdAt: "2026-11-14T10:05:00.000Z"
+        updatedAt: "2026-11-14T10:05:00.000Z"
+
+    NoteContentRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+
+    # ----- Budgets -----
+
+    Budget:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        limitAmount:
+          type: number
+          description: Monthly limit in EUR
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionCategory"
+        spent:
+          type: number
+          description: Expenses in these categories during the current UTC month, in EUR
+        createdAt:
+          type: string
+          format: date-time
+      example:
+        id: 2
+        name: Going out
+        limitAmount: 150
+        categories: [BAR, EATOUT, ENTERTAINMENT]
+        spent: 87.3
+        createdAt: "2026-11-01T09:00:00.000Z"
+
+    CreateBudgetRequest:
+      type: object
+      required: [name, limitAmount, categories]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        limitAmount:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+        categories:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TransactionCategory"
+
+    UpdateBudgetRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        limitAmount:
+          type: number
+          exclusiveMinimum: true
+          minimum: 0
+        categories:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TransactionCategory"
+
+    # ----- Overview & AI -----
+
+    Overview:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        incomeTotal:
+          type: number
+        spentTotal:
+          type: number
+        leftTotal:
+          type: number
+        categoryBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                $ref: "#/components/schemas/TransactionCategory"
+              amount:
+                type: number
+              percentage:
+                type: number
+                description: Share of total spending, 0–100
+      example:
+        year: 2026
+        month: 10
+        incomeTotal: 2000
+        spentTotal: 850
+        leftTotal: 1150
+        categoryBreakdown:
+          - category: RENT
+            amount: 500
+            percentage: 58.82
+          - category: FOOD
+            amount: 350
+            percentage: 41.18
+
+    YearMonthRequest:
+      type: object
+      description: Both fields are optional and default to the current UTC month
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+
+    OverviewInsightsResponse:
+      type: object
+      properties:
+        insights:
+          type: object
+          properties:
+            summary:
+              type: string
+            warning:
+              type: string
+            tip:
+              type: string
+        cached:
+          type: boolean
+          description: True when the stored result was returned instead of calling the AI
+        generatedAt:
+          type: string
+          format: date-time
+          nullable: true
+      example:
+        insights:
+          summary: You spent 850 EUR, mostly on rent and food.
+          warning: Food spending is 41% of your total.
+          tip: Plan weekly meals to cut grocery costs.
+        cached: false
+        generatedAt: "2026-11-15T12:00:00.000Z"
+
+    AskRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt:
+          type: string
+
+    AskResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+
+    RatesResponse:
+      type: object
+      properties:
+        rates:
+          type: object
+          description: Units of each currency per 1 EUR
+          additionalProperties:
+            type: number
+        cachedAt:
+          type: string
+          format: date-time
+      example:
+        rates:
+          EUR: 1
+          USD: 1.08
+          GBP: 0.85
+        cachedAt: "2026-11-15T08:00:00.000Z"
+
+    # ----- Admin -----
+
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+        currency:
+          $ref: "#/components/schemas/Currency"
+        role:
+          $ref: "#/components/schemas/Role"
+        isVerified:
+          type: boolean
+
+    AdminUpdateUserRequest:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+        name:
+          type: string
+          minLength: 1
