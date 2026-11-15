@@ -53,7 +53,7 @@ Klientinės dalies kūrimui bus naudojamas React Native (Expo) karkasas, leidži
 Serverio dalis bus kuriama naudojant Node.js, Express karkasą ir TypeScript kalbą, o duomenų bazei pasiekti – „Prisma“ ORM biblioteką;
 Duomenų bazei bus naudojama PostgreSQL duomenų bazės valdymo sistema;
 Autentifikacijai ir autorizacijai bus naudojami JWT žetonai: trumpalaikis prieigos žetonas (15 min.) ir ilgalaikis atnaujinimo žetonas (30 d.), kuris keičiamas nauju kiekvieno atnaujinimo metu;
-Sistema bus talpinama debesyje naudojant „Vercel“ platformą.
+Sistema bus talpinama debesyje naudojant „Vercel“ platformą. Duomenų bazė bus talpinama "Neon" platformoje.
 
 # Pagrindiniai taikomosios srities objektai
 Sąskaita (Account) -> Operacija (Transaction) -> Pastaba (Note)
