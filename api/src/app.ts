@@ -31,7 +31,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// Strict limiter for login/register — 10 attempts per 15 minutes per IP
+// 10 attempts per 15 minutes per IP
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
@@ -40,7 +40,7 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-// Looser limiter for token refresh — 60 per 15 minutes per IP
+// 60 per 15 minutes per IP
 const refreshLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 60,
@@ -49,7 +49,7 @@ const refreshLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-// AI endpoints are expensive — 20 calls per hour per IP
+// 20 calls per hour per IP
 const aiLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
     limit: 20,
