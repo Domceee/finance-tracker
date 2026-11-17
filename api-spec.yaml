@@ -309,11 +309,14 @@ paths:
                 message: A reset code has been sent to recipient
         "400":
           $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /auth/reset-password:
     post:
       tags: [Auth]
       summary: Set a new password using the reset code
+      description: Signs the user out of every device by removing all of their sessions.
       security: []
       requestBody:
         required: true
@@ -342,11 +345,16 @@ paths:
                 $ref: "#/components/schemas/Error"
               example:
                 error: Invalid or expired reset code
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /auth/change-password:
     post:
       tags: [Auth]
       summary: Change the current user's password
+      description: |
+        Signs out every other device by removing all of the user's sessions, then
+        returns a fresh token pair so the current device stays signed in.
       requestBody:
         required: true
         content:
@@ -358,13 +366,11 @@ paths:
               newPassword: newSecret456
       responses:
         "200":
-          description: Password changed
+          description: Password changed, new tokens for this device
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Message"
-              example:
-                message: Password updated successfully
+                $ref: "#/components/schemas/AuthResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":

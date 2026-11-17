@@ -5,9 +5,9 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/jw
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mail.js';
 import { requireAuth } from '../middleware/auth.js';
+import { generateCode } from '../lib/codes.js';
 
 const router = Router();
-const VERIFICATION_CODE_LENGTH = 6;
 const VERIFICATION_EXPIRY_MS = 10 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_ACCOUNT_NAME = 'Main';
@@ -21,12 +21,6 @@ const SUPPORTED_CURRENCIES = new Set([
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function generateVerificationCode() {
-  return Math.floor(Math.random() * 10 ** VERIFICATION_CODE_LENGTH)
-    .toString()
-    .padStart(VERIFICATION_CODE_LENGTH, '0');
 }
 
 function buildAuthResponse(user: {
@@ -89,7 +83,7 @@ router.post('/register', async (req, res) => {
     return res.status(409).json({ error: 'User already exists' });
   }
 
-  const verificationCode = generateVerificationCode();
+  const verificationCode = generateCode();
   const verificationExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_MS);
 
   if (existingUser) {
@@ -363,7 +357,7 @@ router.post('/forgot-password', async (req, res) => {
     return res.status(200).json({ message: 'A reset code has been sent to recipient' });
   }
 
-  const resetCode = generateVerificationCode();
+  const resetCode = generateCode();
   const resetExpiresAt = new Date(Date.now() + VERIFICATION_EXPIRY_MS);
 
   await prisma.user.update({
@@ -410,14 +404,17 @@ router.post('/reset-password', async (req, res) => {
     return res.status(400).json({ error: 'Invalid or expired reset code' });
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      passwordHash: hashPassword(newPassword),
-      verificationCode: null,
-      verificationExpiresAt: null,
-    },
-  });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: hashPassword(newPassword),
+        verificationCode: null,
+        verificationExpiresAt: null,
+      },
+    }),
+    prisma.session.deleteMany({ where: { userId: user.id } }),
+  ]);
 
   return res.status(200).json({ message: 'Password reset successfully' });
 });
@@ -440,12 +437,24 @@ router.post('/change-password', requireAuth, async (req, res) => {
     return res.status(401).json({ error: 'Current password is incorrect' });
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { passwordHash: hashPassword(newPassword) },
-  });
+  const authResponse = buildAuthResponse(user);
 
-  return res.status(200).json({ message: 'Password updated successfully' });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashPassword(newPassword) },
+    }),
+    prisma.session.deleteMany({ where: { userId } }),
+    prisma.session.create({
+      data: {
+        userId,
+        refreshToken: authResponse.refreshToken,
+        expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+      },
+    }),
+  ]);
+
+  return res.status(200).json(authResponse);
 });
 
 router.post('/logout', async (req, res) => {

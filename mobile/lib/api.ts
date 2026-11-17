@@ -1,4 +1,5 @@
 import { apiFetch } from './api-client';
+import { saveTokens } from './auth-storage';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -577,6 +578,9 @@ export async function changePassword(currentPassword: string, newPassword: strin
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to change password'));
   }
+
+  const result: AuthResponse = await response.json();
+  await saveTokens(result.accessToken, result.refreshToken);
 }
 
 export async function deleteUserAccount(): Promise<void> {

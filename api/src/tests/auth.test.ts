@@ -908,6 +908,32 @@ describe.sequential('Auth API', () => {
     expect(user?.verificationExpiresAt).toBeNull();
   });
 
+  it('POST /auth/reset-password signs out every session', async () => {
+    await createVerifiedUser('reset-sessions@example.com');
+    const login = await request(app).post('/auth/login').send({
+      email: 'reset-sessions@example.com',
+      password: 'password123',
+    });
+    await prisma.user.update({
+      where: { email: 'reset-sessions@example.com' },
+      data: {
+        verificationCode: '123456',
+        verificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    await request(app).post('/auth/reset-password').send({
+      email: 'reset-sessions@example.com',
+      code: '123456',
+      newPassword: 'newpassword123',
+    });
+
+    const refresh = await request(app).post('/auth/refresh').send({ refreshToken: login.body.refreshToken });
+
+    expect(refresh.status).toBe(401);
+    expect(await prisma.session.count({ where: { userId: login.body.user.id } })).toBe(0);
+  });
+
   it('POST /auth/change-password rejects missing auth token', async () => {
     const response = await request(app).post('/auth/change-password').send({
       currentPassword: 'password123',
@@ -992,7 +1018,31 @@ describe.sequential('Auth API', () => {
       .send({ currentPassword: 'password123', newPassword: 'newpassword123' });
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ message: 'Password updated successfully' });
+    expect(response.body).toMatchObject({
+      accessToken: expect.any(String),
+      refreshToken: expect.any(String),
+      user: { email: 'change-pwd-success@example.com' },
+    });
+  });
+
+  it('POST /auth/change-password signs out other sessions and keeps the new one', async () => {
+    await createVerifiedUser('change-pwd-sessions@example.com');
+    const credentials = { email: 'change-pwd-sessions@example.com', password: 'password123' };
+    const first = await request(app).post('/auth/login').send(credentials);
+    const second = await request(app).post('/auth/login').send(credentials);
+
+    const changed = await request(app)
+      .post('/auth/change-password')
+      .set('Authorization', `Bearer ${first.body.accessToken}`)
+      .send({ currentPassword: 'password123', newPassword: 'newpassword123' });
+
+    const oldFirst = await request(app).post('/auth/refresh').send({ refreshToken: first.body.refreshToken });
+    const oldSecond = await request(app).post('/auth/refresh').send({ refreshToken: second.body.refreshToken });
+    const fresh = await request(app).post('/auth/refresh').send({ refreshToken: changed.body.refreshToken });
+
+    expect(oldFirst.status).toBe(401);
+    expect(oldSecond.status).toBe(401);
+    expect(fresh.status).toBe(200);
   });
 
   it('POST /auth/change-password updates the stored password hash', async () => {

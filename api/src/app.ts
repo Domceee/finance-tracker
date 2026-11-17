@@ -69,6 +69,8 @@ if (process.env.NODE_ENV !== 'test') {
     app.use('/auth/login', authLimiter);
     app.use('/auth/register', authLimiter);
     app.use('/auth/verify-email', authLimiter);
+    app.use('/auth/forgot-password', authLimiter);
+    app.use('/auth/reset-password', authLimiter);
     app.use('/auth/refresh', refreshLimiter);
     app.use('/ai', aiLimiter);
 }
