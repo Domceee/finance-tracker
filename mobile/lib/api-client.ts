@@ -1,5 +1,6 @@
 import type { AuthUser } from './api';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from './auth-storage';
+import { notifySessionExpired } from './session-events';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -77,6 +78,7 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}) {
     accessToken = refreshResult.accessToken;
   } catch {
     await clearTokens();
+    notifySessionExpired();
     return response;
   }
 

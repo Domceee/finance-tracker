@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { clearTokens, getRefreshToken, saveTokens } from '../lib/auth-storage';
 import { login, logoutSession, register, verifyEmail, type AuthUser } from '../lib/api';
 import { refreshTokens } from '../lib/api-client';
+import { onSessionExpired } from '../lib/session-events';
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -46,6 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     bootstrap();
   }, []);
+
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        setAccessToken(null);
+        setUser(null);
+      }),
+    [],
+  );
 
   async function loginUser(email: string, password: string) {
     const result = await login(email, password);
