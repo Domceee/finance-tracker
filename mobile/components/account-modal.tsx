@@ -10,6 +10,7 @@ import {
 } from '../lib/api';
 import { formatAccountType } from '../lib/format';
 import { AppPalette } from '../constants/theme';
+import { FontFamily } from '../constants/fonts';
 import { useConfirm } from '../providers/confirm-provider';
 import { useToast } from '../providers/toast-provider';
 
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     color: AppPalette.text,
     marginBottom: 20,
     textAlign: 'center',

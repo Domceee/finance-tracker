@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { useAuth } from '../providers/auth-provider';
 import { AppPalette } from '../constants/theme';
+import { BrandLogo } from '../components/brand-logo';
+import { FontFamily } from '../constants/fonts';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
@@ -33,6 +35,7 @@ export default function RegisterScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
+        <BrandLogo />
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>Set up your account to get started</Text>
 
@@ -96,7 +99,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
     textAlign: 'center',
     color: AppPalette.text,

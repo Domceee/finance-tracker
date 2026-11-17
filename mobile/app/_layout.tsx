@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from '../providers/auth-provider';
 import { CurrencyProvider } from '../providers/currency-provider';
 import { ToastProvider } from '../providers/toast-provider';
 import { ConfirmProvider } from '../providers/confirm-provider';
+import { useAppFonts } from '../hooks/use-app-fonts';
+import { injectWebGlobalStyles } from '../lib/web-global-styles';
+import { AppPalette } from '../constants/theme';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -16,8 +19,11 @@ const PUBLIC_ROUTES = new Set([
 ]);
 const AUTH_ROUTES = new Set(['login', 'register', 'verify-email']);
 
+injectWebGlobalStyles();
+
 function AppNavigation() {
   const { isLoading, isAuthenticated } = useAuth();
+  const fontsLoaded = useAppFonts();
   const router = useRouter();
   const segments = useSegments();
 
@@ -37,15 +43,16 @@ function AppNavigation() {
     }
   }, [isAuthenticated, isLoading, router, segments]);
 
-  if (isLoading) {
+  if (isLoading || !fontsLoaded) {
     return (
       <View
         style={{
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-      }}>
-        <ActivityIndicator size="large" />
+          backgroundColor: AppPalette.void,
+        }}>
+        <ActivityIndicator size="large" color={AppPalette.accent} />
       </View>
     );
   }

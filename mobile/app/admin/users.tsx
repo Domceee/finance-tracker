@@ -7,6 +7,7 @@ import { useAuth } from '../../providers/auth-provider';
 import { useConfirm } from '../../providers/confirm-provider';
 import { useToast } from '../../providers/toast-provider';
 import { AppPalette } from '../../constants/theme';
+import { FontFamily } from '../../constants/fonts';
 
 export default function AdminUsersScreen() {
   const { user: currentUser } = useAuth();
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     color: AppPalette.text,
     marginBottom: 16,
   },

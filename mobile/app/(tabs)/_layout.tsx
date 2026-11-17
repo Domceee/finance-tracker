@@ -1,62 +1,48 @@
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Tabs } from 'expo-router';
-import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { AppHeader } from '../../components/app-header';
+import { AppFooter } from '../../components/app-footer';
+import { NavMenu } from '../../components/nav-menu';
+import { NAV_ITEMS } from '../../constants/nav-items';
+import { CONTENT_MAX_WIDTH } from '../../constants/layout';
 import { AppPalette } from '../../constants/theme';
+import { useIsWide } from '../../hooks/use-is-wide';
 
 export default function TabLayout() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isWide = useIsWide();
+
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: AppPalette.text,
-        tabBarInactiveTintColor: AppPalette.muted,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarStyle: {
-          borderTopWidth: 0,
-          height: 100,
-          paddingBottom: 10,
-          paddingTop: 10,
-          backgroundColor: AppPalette.surface,
-          borderTopColor: AppPalette.elevated,
-        },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Transactions',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="creditcard.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="accounts"
-        options={{
-          title: 'Accounts',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="wallet.pass.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="overview"
-        options={{
-          title: 'Overview',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.bar.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
-        }}
-      />
-    </Tabs>
+    <View style={styles.root}>
+      <AppHeader onOpenMenu={() => setIsMenuOpen(true)} />
+
+      <View style={styles.content}>
+        <Tabs
+          tabBar={() => null}
+          screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: AppPalette.void } }}>
+          {NAV_ITEMS.map((item) => (
+            <Tabs.Screen key={item.screen} name={item.screen} options={{ title: item.label }} />
+          ))}
+        </Tabs>
+      </View>
+
+      <AppFooter />
+
+      {isMenuOpen && !isWide ? <NavMenu onClose={() => setIsMenuOpen(false)} /> : null}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: AppPalette.void,
+  },
+  content: {
+    flex: 1,
+    width: '100%',
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
+  },
+});

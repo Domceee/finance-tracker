@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { useAuth } from '../providers/auth-provider';
 import { AppPalette } from '../constants/theme';
+import { BrandLogo } from '../components/brand-logo';
+import { FontFamily } from '../constants/fonts';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -29,6 +31,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.logoContainer}>
+        <BrandLogo />
         <Text style={styles.title}>Bim bam</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
 
@@ -81,7 +84,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
     textAlign: 'center',
     color: AppPalette.text,

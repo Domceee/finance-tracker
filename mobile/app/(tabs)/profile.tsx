@@ -20,6 +20,7 @@ import { useToast } from '../../providers/toast-provider';
 import { changePassword, updateProfile, deleteUserAccount, SUPPORTED_CURRENCIES } from '../../lib/api';
 import { formatRole } from '../../lib/format';
 import { AppPalette } from '../../constants/theme';
+import { FontFamily } from '../../constants/fonts';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
@@ -383,7 +384,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginTop: 20,
     marginBottom: 24,
     color: AppPalette.text,

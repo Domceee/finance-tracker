@@ -3,6 +3,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useAuth } from '../providers/auth-provider';
 import { AppPalette } from '../constants/theme';
+import { BrandLogo } from '../components/brand-logo';
+import { FontFamily } from '../constants/fonts';
 
 export default function VerifyEmailScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
@@ -30,6 +32,7 @@ export default function VerifyEmailScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
+        <BrandLogo />
         <Text style={styles.title}>Verify Email</Text>
         <Text style={styles.subtitle}>Enter the code sent to your email address</Text>
 
@@ -81,7 +84,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
     textAlign: 'center',
     color: AppPalette.text,

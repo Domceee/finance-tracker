@@ -27,6 +27,7 @@ import { useCurrency } from '../../providers/currency-provider';
 import { useConfirm } from '../../providers/confirm-provider';
 import { useToast } from '../../providers/toast-provider';
 import { AppPalette } from '../../constants/theme';
+import { FontFamily } from '../../constants/fonts';
 
 function progressColor(spent: number, limit: number) {
   const pct = limit > 0 ? spent / limit : 0;
@@ -404,7 +405,7 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
     color: AppPalette.text,
   },

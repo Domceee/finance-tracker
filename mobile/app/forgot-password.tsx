@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { forgotPassword } from '../lib/api';
 import { AppPalette } from '../constants/theme';
+import { BrandLogo } from '../components/brand-logo';
+import { FontFamily } from '../constants/fonts';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -32,6 +34,7 @@ export default function ForgotPasswordScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
+        <BrandLogo />
         <Text style={styles.title}>Forgot Password</Text>
         <Text style={styles.subtitle}>
           Enter your email and we'll send you a reset code.
@@ -82,7 +85,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     color: AppPalette.text,
     marginBottom: 8,
     textAlign: 'center',

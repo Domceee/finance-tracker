@@ -1,0 +1,22 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--env-file=C:/Users/domin/AppData/Local/Temp/claude/d45920fe83d53fb6/101324b3-cf99-48fa-ae9a-6bff69e9ae52/scratchpad/api-preview.env",
+        "api/node_modules/tsx/dist/cli.mjs",
+        "api/src/server.ts"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "mobile", "run", "web", "--", "--port", "8081"],
+      "env": { "EXPO_PUBLIC_API_BASE_URL": "http://localhost:3000", "BROWSER": "none" },
+      "port": 8081
+    }
+  ]
+}

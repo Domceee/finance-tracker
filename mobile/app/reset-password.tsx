@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { resetPassword } from '../lib/api';
 import { AppPalette } from '../constants/theme';
+import { BrandLogo } from '../components/brand-logo';
+import { FontFamily } from '../constants/fonts';
 
 export default function ResetPasswordScreen() {
   const { email } = useLocalSearchParams<{ email: string }>();
@@ -45,6 +47,7 @@ export default function ResetPasswordScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
+        <BrandLogo />
         <Text style={styles.title}>Reset Password</Text>
         <Text style={styles.subtitle}>
           Enter the code sent to{' '}
@@ -114,7 +117,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     color: AppPalette.text,
     marginBottom: 8,
     textAlign: 'center',

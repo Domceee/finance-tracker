@@ -12,6 +12,7 @@ import { formatCategoryLabel } from '../lib/format';
 import { useCurrency } from '../providers/currency-provider';
 import { useToast } from '../providers/toast-provider';
 import { AppPalette } from '../constants/theme';
+import { FontFamily } from '../constants/fonts';
 
 export default function AddTransactionScreen() {
   const { currency, toEur } = useCurrency();
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     color: AppPalette.text,
     marginBottom: 20,
     textAlign: 'left',

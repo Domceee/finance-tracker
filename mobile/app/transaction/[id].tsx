@@ -24,6 +24,7 @@ import { formatCategoryLabel } from '../../lib/format';
 import { useCurrency } from '../../providers/currency-provider';
 import { useConfirm } from '../../providers/confirm-provider';
 import { AppPalette } from '../../constants/theme';
+import { FontFamily } from '../../constants/fonts';
 
 function NoteItem({
   note,
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
   title: {
     color: AppPalette.text,
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
   },
   income: {
     color: AppPalette.success,

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useIsFocused } from '@react-navigation/native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { AppPalette } from '../../constants/theme';
+import { FontFamily } from '../../constants/fonts';
 import {
   getOverview,
   getOverviewInsights,
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginTop: 20,
     color: AppPalette.text,
   },

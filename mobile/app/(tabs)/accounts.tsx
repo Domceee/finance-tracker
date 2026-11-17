@@ -6,6 +6,7 @@ import { formatAccountType } from '../../lib/format';
 import { useCurrency } from '../../providers/currency-provider';
 import { AccountModal } from '../../components/account-modal';
 import { AppPalette } from '../../constants/theme';
+import { FontFamily } from '../../constants/fonts';
 
 export default function AccountsScreen() {
   const { formatCurrency } = useCurrency();
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     color: AppPalette.text,
   },
   addButton: {

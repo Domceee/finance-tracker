@@ -1,6 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import { AppPalette } from '../constants/theme';
+import { FontFamily } from '../constants/fonts';
 
 export type ConfirmOptions = {
   title: string;
@@ -65,7 +66,7 @@ const styles = StyleSheet.create({
   title: {
     color: AppPalette.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginBottom: 8,
   },
   message: {
