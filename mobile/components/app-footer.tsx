@@ -13,8 +13,8 @@ export function AppFooter() {
   return (
     <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
       <View style={[styles.inner, !isWide && styles.innerNarrow]}>
-        <Text style={styles.brand}>© {year} Bim bam</Text>
-        {isWide ? <Text style={styles.text}>Personal finance tracker · KTU T120B165</Text> : null}
+        <Text style={styles.brand}>© {year} Finance</Text>
+        {isWide ? <Text style={styles.text}>Personal finance tracker</Text> : null}
       </View>
     </View>
   );

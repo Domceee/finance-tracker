@@ -1,135 +1,41 @@
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
-  createNote,
-  deleteNote,
+  deleteTransaction,
   getAccount,
   getTransaction,
   getTransactionNotes,
-  updateNote,
   type Account,
   type Note,
   type Transaction,
 } from '../../lib/api';
 import { formatCategoryLabel } from '../../lib/format';
+import { NoteCard } from '../../components/note-card';
+import { NoteFormModal, type NoteFormState } from '../../components/note-form-modal';
+import { NoteViewModal, type NoteTarget } from '../../components/note-view-modal';
+import { TransactionEditModal } from '../../components/transaction-edit-modal';
 import { useCurrency } from '../../providers/currency-provider';
 import { useConfirm } from '../../providers/confirm-provider';
+import { useToast } from '../../providers/toast-provider';
 import { AppPalette } from '../../constants/theme';
 import { FontFamily } from '../../constants/fonts';
-
-function NoteItem({
-  note,
-  onUpdated,
-  onDeleted,
-}: {
-  note: Note;
-  onUpdated: (note: Note) => void;
-  onDeleted: (id: number) => void;
-}) {
-  const confirm = useConfirm();
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(note.content);
-  const [error, setError] = useState('');
-
-  async function handleSave() {
-    setError('');
-
-    if (!draft.trim()) {
-      setError('Note cannot be empty');
-      return;
-    }
-
-    try {
-      onUpdated(await updateNote(note.id, draft.trim()));
-      setIsEditing(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update note');
-    }
-  }
-
-  async function handleDelete() {
-    const confirmed = await confirm({ title: 'Delete Note', message: 'Delete this note?', confirmLabel: 'Delete' });
-
-    if (!confirmed) return;
-
-    try {
-      await deleteNote(note.id);
-      onDeleted(note.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete note');
-    }
-  }
-
-  return (
-    <View style={styles.noteCard}>
-      {isEditing ? (
-        <TextInput
-          style={styles.noteInput}
-          value={draft}
-          onChangeText={setDraft}
-          multiline
-          autoFocus
-        />
-      ) : (
-        <Text style={styles.noteText}>{note.content}</Text>
-      )}
-
-      <Text style={styles.noteDate}>
-        {new Date(note.createdAt).toLocaleString()}
-        {note.updatedAt !== note.createdAt ? ' · edited' : ''}
-      </Text>
-
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      <View style={styles.noteActions}>
-        {isEditing ? (
-          <>
-            <Pressable onPress={handleSave}>
-              <Text style={styles.noteActionText}>Save</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setDraft(note.content);
-                setIsEditing(false);
-              }}>
-              <Text style={styles.noteActionMuted}>Cancel</Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            <Pressable onPress={() => setIsEditing(true)}>
-              <Text style={styles.noteActionText}>Edit</Text>
-            </Pressable>
-            <Pressable onPress={handleDelete}>
-              <Text style={styles.noteActionDanger}>Delete</Text>
-            </Pressable>
-          </>
-        )}
-      </View>
-    </View>
-  );
-}
 
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const transactionId = Number(id);
   const { formatCurrency } = useCurrency();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [newNote, setNewNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState('');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [viewTarget, setViewTarget] = useState<NoteTarget | null>(null);
+  const [noteForm, setNoteForm] = useState<NoteFormState | null>(null);
 
   const loadData = useCallback(async () => {
     setError('');
@@ -156,32 +62,51 @@ export default function TransactionDetailScreen() {
     }, [loadData]),
   );
 
-  async function handleAddNote() {
-    setError('');
+  async function handleDeleteTransaction() {
+    if (!transaction) return;
 
-    if (!newNote.trim()) {
-      setError('Write something before adding a note');
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete Transaction',
+      message: `Delete "${transaction.title}" and all of its notes? This cannot be undone.`,
+      confirmLabel: 'Delete',
+    });
 
-    setIsAdding(true);
+    if (!confirmed) return;
 
     try {
-      const created = await createNote(transactionId, newNote.trim());
-      setNotes((prev) => [...prev, created]);
-      setNewNote('');
+      await deleteTransaction(transaction.id);
+      toast.success('Transaction deleted');
+
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/explore');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add note');
-    } finally {
-      setIsAdding(false);
+      toast.error(err instanceof Error ? err.message : 'Failed to delete transaction');
     }
   }
 
+  function openNote(note: Note) {
+    if (!transaction || !account) return;
+
+    setViewTarget({
+      accountId: account.id,
+      accountName: account.name,
+      transactionId: transaction.id,
+      transactionTitle: transaction.title,
+      noteId: note.id,
+    });
+  }
+
+  function handleNoteSaved(saved: Note) {
+    setNotes((prev) =>
+      prev.some((n) => n.id === saved.id) ? prev.map((n) => (n.id === saved.id ? saved : n)) : [...prev, saved],
+    );
+  }
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Pressable style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backText}>‹ Back</Text>
       </Pressable>
@@ -218,45 +143,58 @@ export default function TransactionDetailScreen() {
                 <Text style={styles.detailValue}>{transaction.description}</Text>
               </View>
             ) : null}
+
+            <View style={styles.actions}>
+              <Pressable style={styles.editButton} onPress={() => setEditingTransaction(transaction)}>
+                <MaterialIcons name="edit" size={18} color={AppPalette.void} />
+                <Text style={styles.editText}>Edit</Text>
+              </Pressable>
+              <Pressable style={styles.deleteButton} onPress={handleDeleteTransaction}>
+                <MaterialIcons name="delete-outline" size={18} color={AppPalette.danger} />
+                <Text style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Notes</Text>
-
-          {notes.length === 0 ? (
-            <Text style={styles.emptyText}>No notes yet. Add the first one below.</Text>
-          ) : (
-            notes.map((note) => (
-              <NoteItem
-                key={note.id}
-                note={note}
-                onUpdated={(updated) =>
-                  setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
-                }
-                onDeleted={(noteId) => setNotes((prev) => prev.filter((n) => n.id !== noteId))}
-              />
-            ))
-          )}
-
-          <View style={styles.addCard}>
-            <TextInput
-              style={styles.noteInput}
-              placeholder="Add a note, e.g. Split with Tom"
-              placeholderTextColor={AppPalette.muted}
-              value={newNote}
-              onChangeText={setNewNote}
-              multiline
-            />
-            <Pressable
-              style={[styles.addButton, isAdding && styles.buttonDisabled]}
-              onPress={handleAddNote}
-              disabled={isAdding}>
-              <Text style={styles.addButtonText}>{isAdding ? 'Adding...' : 'Add Note'}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Notes</Text>
+            <Pressable style={styles.addButton} onPress={() => setNoteForm({ mode: 'create' })}>
+              <Text style={styles.addButtonText}>+ Add Note</Text>
             </Pressable>
           </View>
+
+          {notes.length === 0 ? (
+            <Text style={styles.emptyText}>No notes yet.</Text>
+          ) : (
+            notes.map((note) => <NoteCard key={note.id} note={note} onPress={() => openNote(note)} />)
+          )}
         </>
       ) : null}
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <TransactionEditModal
+        transaction={editingTransaction}
+        onClose={() => setEditingTransaction(null)}
+        onSaved={() => loadData()}
+      />
+
+      <NoteViewModal
+        target={viewTarget}
+        onClose={() => setViewTarget(null)}
+        onEdit={(note) => {
+          setViewTarget(null);
+          setNoteForm({ mode: 'edit', note });
+        }}
+        onDeleted={(noteId) => setNotes((prev) => prev.filter((n) => n.id !== noteId))}
+      />
+
+      <NoteFormModal
+        state={noteForm}
+        transactionId={transactionId}
+        onClose={() => setNoteForm(null)}
+        onSaved={handleNoteSaved}
+      />
     </ScrollView>
   );
 }
@@ -267,6 +205,9 @@ const styles = StyleSheet.create({
     backgroundColor: AppPalette.void,
   },
   content: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     padding: 20,
     paddingBottom: 40,
   },
@@ -329,73 +270,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  sectionTitle: {
-    color: AppPalette.text,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  noteCard: {
-    backgroundColor: AppPalette.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#211C33',
-    padding: 14,
-    marginBottom: 10,
-  },
-  noteText: {
-    color: AppPalette.text,
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  noteDate: {
-    color: AppPalette.muted,
-    fontSize: 12,
-    marginTop: 8,
-  },
-  noteActions: {
+  actions: {
     flexDirection: 'row',
-    gap: 20,
-    marginTop: 10,
+    gap: 10,
+    marginTop: 12,
   },
-  noteActionText: {
-    color: AppPalette.accent,
+  editButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: AppPalette.accent,
+    borderRadius: 14,
+    padding: 12,
+  },
+  editText: {
+    color: AppPalette.void,
     fontWeight: '700',
   },
-  noteActionMuted: {
-    color: AppPalette.muted,
-    fontWeight: '700',
+  deleteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: AppPalette.danger,
+    borderRadius: 14,
+    padding: 12,
   },
-  noteActionDanger: {
+  deleteText: {
     color: AppPalette.danger,
     fontWeight: '700',
   },
-  noteInput: {
-    borderWidth: 1,
-    borderColor: AppPalette.muted,
-    backgroundColor: AppPalette.elevated,
-    color: AppPalette.text,
-    borderRadius: 14,
-    padding: 12,
-    minHeight: 48,
-    textAlignVertical: 'top',
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  addCard: {
-    marginTop: 8,
-    gap: 10,
+  sectionTitle: {
+    color: AppPalette.text,
+    fontSize: 18,
+    fontFamily: FontFamily.bold,
   },
   addButton: {
     backgroundColor: AppPalette.accent,
-    padding: 14,
-    borderRadius: 14,
-    alignItems: 'center',
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
   },
   addButtonText: {
     color: AppPalette.void,
     fontWeight: '700',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
   emptyText: {
     color: AppPalette.accent,

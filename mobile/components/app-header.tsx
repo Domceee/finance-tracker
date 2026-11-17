@@ -20,7 +20,7 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
       <View style={styles.inner}>
         <Pressable accessibilityRole="link" style={styles.brand} onPress={() => router.navigate('/')}>
           <BrandLogo size={34} />
-          <Text style={styles.brandText}>Bim bam</Text>
+          <Text style={styles.brandText}>Finance</Text>
         </Pressable>
 
         {isWide ? (

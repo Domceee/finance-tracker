@@ -139,7 +139,7 @@ type AuthResponse = {
   user: AuthUser;
 };
 
-type CreateTransactionInput = {
+export type TransactionInput = {
   title: string;
   amount: number;
   type: 'expense' | 'income';
@@ -239,7 +239,7 @@ export async function getTransactions(): Promise<Transaction[]> {
   return readList(response);
 }
 
-export async function createTransaction(input: CreateTransactionInput): Promise<Transaction> {
+export async function createTransaction(input: TransactionInput): Promise<Transaction> {
   const response = await apiFetch('/transactions', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -260,6 +260,29 @@ export async function getTransaction(id: number): Promise<Transaction> {
   }
 
   return response.json();
+}
+
+export async function updateTransaction(id: number, input: TransactionInput): Promise<Transaction> {
+  const response = await apiFetch(`/transactions/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to update transaction'));
+  }
+
+  return response.json();
+}
+
+export async function deleteTransaction(id: number): Promise<void> {
+  const response = await apiFetch(`/transactions/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to delete transaction'));
+  }
 }
 
 export async function getAccounts(): Promise<Account[]> {
@@ -336,6 +359,20 @@ export async function getTransactionNotes(transactionId: number): Promise<Note[]
   }
 
   return readList(response);
+}
+
+export async function getAccountTransactionNote(
+  accountId: number,
+  transactionId: number,
+  noteId: number,
+): Promise<Note> {
+  const response = await apiFetch(`/accounts/${accountId}/transactions/${transactionId}/notes/${noteId}`);
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch note'));
+  }
+
+  return response.json();
 }
 
 export async function createNote(transactionId: number, content: string): Promise<Note> {

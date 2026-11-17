@@ -19,28 +19,30 @@ export function ConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const destructive = options?.destructive ?? true;
+  if (!options) {
+    return null;
+  }
+
+  const destructive = options.destructive ?? true;
 
   return (
-    <Modal visible={options !== null} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.overlay}>
-        {options ? (
-          <Animated.View entering={ZoomIn.duration(180)} style={styles.card}>
-            <Text style={styles.title}>{options.title}</Text>
-            <Text style={styles.message}>{options.message}</Text>
+        <Animated.View entering={ZoomIn.duration(180)} style={styles.card}>
+          <Text style={styles.title}>{options.title}</Text>
+          <Text style={styles.message}>{options.message}</Text>
 
-            <View style={styles.actions}>
-              <Pressable style={styles.cancelButton} onPress={onCancel}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.confirmButton, destructive ? styles.destructive : styles.primary]}
-                onPress={onConfirm}>
-                <Text style={styles.confirmText}>{options.confirmLabel ?? 'Confirm'}</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        ) : null}
+          <View style={styles.actions}>
+            <Pressable style={styles.cancelButton} onPress={onCancel}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.confirmButton, destructive ? styles.destructive : styles.primary]}
+              onPress={onConfirm}>
+              <Text style={styles.confirmText}>{options.confirmLabel ?? 'Confirm'}</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
       </View>
     </Modal>
   );

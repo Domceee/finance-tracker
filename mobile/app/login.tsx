@@ -32,7 +32,7 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <View style={styles.logoContainer}>
         <BrandLogo />
-        <Text style={styles.title}>Bim bam</Text>
+        <Text style={styles.title}>Finance</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
 
         <TextInput

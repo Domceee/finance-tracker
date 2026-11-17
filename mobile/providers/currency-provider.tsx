@@ -7,6 +7,7 @@ type CurrencyContextValue = {
   setCurrency: (code: string) => Promise<void>;
   formatCurrency: (amountEur: number) => string;
   toEur: (amountInSelectedCurrency: number) => number;
+  fromEur: (amountEur: number) => number;
   ratesLoading: boolean;
 };
 
@@ -46,6 +47,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     return amountInSelectedCurrency / rate;
   }
 
+  function fromEur(amountEur: number) {
+    const rate = rates?.[currency] ?? 1;
+    return amountEur * rate;
+  }
+
   function formatCurrency(amountEur: number) {
     const rate = rates?.[currency] ?? 1;
     const converted = amountEur * rate;
@@ -63,7 +69,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, toEur, ratesLoading }}>
+    <CurrencyContext.Provider value={{ currency, setCurrency, formatCurrency, toEur, fromEur, ratesLoading }}>
       {children}
     </CurrencyContext.Provider>
   );
