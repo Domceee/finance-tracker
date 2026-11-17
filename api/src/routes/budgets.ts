@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import type { Budget } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
+import { buildBudgetResponse, withSpent } from '../lib/budgets.js';
 import { parseId } from '../lib/ids.js';
 import { parseBudgetFilters } from '../lib/list-filters.js';
 import { INVALID_PAGINATION_MESSAGE, listResponse, parsePagination } from '../lib/pagination.js';
@@ -13,46 +13,8 @@ const VALID_CATEGORIES = new Set([
   'ENTERTAINMENT', 'BAR', 'EATOUT', 'OTHER',
 ]);
 
-function parseCategories(raw: string): string[] {
-  return raw.split(',').map((c) => c.trim()).filter((c) => c.length > 0);
-}
-
-function getCurrentMonthRange() {
-  const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-  return { start, end };
-}
-
-async function buildBudgetResponse(budget: Budget) {
-  const { start, end } = getCurrentMonthRange();
-  const categories = parseCategories(budget.categories);
-
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      userId: budget.userId,
-      type: 'expense',
-      category: { in: categories as any },
-      date: { gte: start, lt: end },
-    },
-    select: { amount: true },
-  });
-
-  const spent = transactions.reduce((sum, t) => sum + t.amount, 0);
-
-  return {
-    id: budget.id,
-    name: budget.name,
-    limitAmount: budget.limitAmount,
-    categories,
-    spent: Math.round(spent * 100) / 100,
-    createdAt: budget.createdAt,
-  };
-}
-
 router.get('/', requireAuth, async (req, res) => {
   const userId = req.user!.userId;
-  const { start, end } = getCurrentMonthRange();
   const pagination = parsePagination(req.query);
 
   if (!pagination) {
@@ -67,7 +29,7 @@ router.get('/', requireAuth, async (req, res) => {
 
   const where = { ...filters.where, userId };
 
-  const [budgets, total, transactions] = await Promise.all([
+  const [budgets, total] = await Promise.all([
     prisma.budget.findMany({
       where,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -75,29 +37,9 @@ router.get('/', requireAuth, async (req, res) => {
       take: pagination.limit,
     }),
     prisma.budget.count({ where }),
-    prisma.transaction.findMany({
-      where: { userId, type: 'expense', date: { gte: start, lt: end } },
-      select: { category: true, amount: true },
-    }),
   ]);
 
-  const result = budgets.map((budget) => {
-    const categories = parseCategories(budget.categories);
-    const spent = transactions
-      .filter((t) => categories.includes(t.category))
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-      id: budget.id,
-      name: budget.name,
-      limitAmount: budget.limitAmount,
-      categories,
-      spent: Math.round(spent * 100) / 100,
-      createdAt: budget.createdAt,
-    };
-  });
-
-  return res.json(listResponse(req, result, total, pagination));
+  return res.json(listResponse(req, await withSpent(userId, budgets), total, pagination));
 });
 
 router.get('/:id', requireAuth, async (req, res) => {

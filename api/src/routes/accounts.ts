@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { AccountType, type Account } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
+import { withBalances } from '../lib/accounts.js';
 import { parseId } from '../lib/ids.js';
 import { accountLinks, withLinks } from '../lib/links.js';
 import { parseAccountFilters } from '../lib/list-filters.js';
@@ -15,33 +16,6 @@ router.use(requireAuth);
 
 function isValidName(name: unknown): name is string {
   return typeof name === 'string' && name.trim().length > 0;
-}
-
-async function getBalances(accountIds: number[]) {
-  const sums = await prisma.transaction.groupBy({
-    by: ['accountId', 'type'],
-    where: { accountId: { in: accountIds } },
-    _sum: { amount: true },
-  });
-
-  const balances = new Map<number, number>();
-
-  for (const sum of sums) {
-    const amount = sum._sum.amount ?? 0;
-    const signedAmount = sum.type === 'income' ? amount : sum.type === 'expense' ? -amount : 0;
-    balances.set(sum.accountId, (balances.get(sum.accountId) ?? 0) + signedAmount);
-  }
-
-  return balances;
-}
-
-async function withBalances(accounts: Account[]) {
-  const balances = await getBalances(accounts.map((account) => account.id));
-
-  return accounts.map((account) => ({
-    ...account,
-    balance: Math.round((balances.get(account.id) ?? 0) * 100) / 100,
-  }));
 }
 
 async function presentAccounts(accounts: Account[]) {
