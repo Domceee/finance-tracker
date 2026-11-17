@@ -3,9 +3,10 @@ import { AccountType, type Account } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { parseId } from '../lib/ids.js';
-import { accountLinks, transactionLinks, withLinks } from '../lib/links.js';
-import { parseAccountFilters, parseTransactionFilters } from '../lib/list-filters.js';
+import { accountLinks, withLinks } from '../lib/links.js';
+import { parseAccountFilters } from '../lib/list-filters.js';
 import { INVALID_PAGINATION_MESSAGE, listResponse, parsePagination } from '../lib/pagination.js';
+import accountTransactionsRouter from './account-transactions.js';
 
 const router = Router();
 const accountTypes = new Set<string>(Object.values(AccountType));
@@ -180,47 +181,6 @@ router.delete('/:id', async (req, res) => {
   return res.status(204).send();
 });
 
-router.get('/:id/transactions', async (req, res) => {
-  const userId = req.user!.userId;
-  const id = parseId(req.params.id);
-
-  if (id === null) {
-    return res.status(400).json({ error: 'Invalid account ID' });
-  }
-
-  const pagination = parsePagination(req.query);
-
-  if (!pagination) {
-    return res.status(400).json({ error: INVALID_PAGINATION_MESSAGE });
-  }
-
-  const filters = parseTransactionFilters(req.query);
-
-  if ('error' in filters) {
-    return res.status(400).json({ error: filters.error });
-  }
-
-  const account = await findOwnedAccount(id, userId);
-
-  if (!account) {
-    return res.status(404).json({ error: 'Account not found' });
-  }
-
-  const where = { ...filters.where, accountId: id, userId };
-
-  const [transactions, total] = await prisma.$transaction([
-    prisma.transaction.findMany({
-      where,
-      orderBy: [{ date: 'desc' }, { id: 'desc' }],
-      skip: pagination.skip,
-      take: pagination.limit,
-    }),
-    prisma.transaction.count({ where }),
-  ]);
-
-  const items = transactions.map((transaction) => withLinks(transaction, transactionLinks(transaction)));
-
-  return res.json(listResponse(req, items, total, pagination));
-});
+router.use('/:accountId/transactions', accountTransactionsRouter);
 
 export default router;
