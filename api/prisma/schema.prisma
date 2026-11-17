@@ -25,6 +25,7 @@ enum TransactionCategory {
 
 enum Role {
   USER
+  SUPPORT
   ADMIN
 }
 

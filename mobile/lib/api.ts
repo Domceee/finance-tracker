@@ -56,7 +56,9 @@ export type Note = {
   updatedAt: string;
 };
 
-export type Role = 'USER' | 'ADMIN';
+export const ROLES = ['USER', 'SUPPORT', 'ADMIN'] as const;
+
+export type Role = (typeof ROLES)[number];
 
 export type AdminUser = {
   id: number;

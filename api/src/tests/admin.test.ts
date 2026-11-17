@@ -5,11 +5,11 @@ import { signAccessToken } from '../lib/jwt.js';
 import prisma from '../prisma.js';
 import { createAccount } from './helpers.js';
 
-async function createUser(role: 'USER' | 'ADMIN' = 'USER') {
+async function createUser(role: 'USER' | 'SUPPORT' | 'ADMIN' = 'USER') {
   const user = await prisma.user.create({
     data: {
       email: `admin-test-${Date.now()}-${Math.random()}@example.com`,
-      name: role === 'ADMIN' ? 'Admin' : 'Member',
+      name: role === 'USER' ? 'Member' : role === 'ADMIN' ? 'Admin' : 'Support',
       passwordHash: 'not-a-real-hash',
       isVerified: true,
       role,
@@ -33,7 +33,7 @@ describe.sequential('Admin API', () => {
     await prisma.$disconnect();
   });
 
-  it('GET /admin/users returns 401 for a guest', async () => {
+  it('GET /admin/users returns 401 without a token', async () => {
     const response = await request(app).get('/admin/users');
 
     expect(response.status).toBe(401);
@@ -213,5 +213,68 @@ describe.sequential('Admin API', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'User not found' });
+  });
+
+  it('SUPPORT can list users', async () => {
+    const { accessToken } = await createUser('SUPPORT');
+    await createUser('USER');
+
+    const response = await request(app)
+      .get('/admin/users')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(2);
+  });
+
+  it('SUPPORT can view a single user', async () => {
+    const { accessToken } = await createUser('SUPPORT');
+    const { user: member } = await createUser('USER');
+
+    const response = await request(app)
+      .get(`/admin/users/${member.id}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ id: member.id, role: 'USER' });
+  });
+
+  it('SUPPORT cannot change a user', async () => {
+    const { accessToken } = await createUser('SUPPORT');
+    const { user: member } = await createUser('USER');
+
+    const response = await request(app)
+      .patch(`/admin/users/${member.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ role: 'ADMIN' });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: 'Forbidden' });
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: member.id } })).role).toBe('USER');
+  });
+
+  it('SUPPORT cannot delete a user', async () => {
+    const { accessToken } = await createUser('SUPPORT');
+    const { user: member } = await createUser('USER');
+
+    const response = await request(app)
+      .delete(`/admin/users/${member.id}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(403);
+    expect(await prisma.user.findUnique({ where: { id: member.id } })).not.toBeNull();
+  });
+
+  it('ADMIN can give a user the SUPPORT role', async () => {
+    const { accessToken } = await createUser('ADMIN');
+    const { user: member } = await createUser('USER');
+
+    const response = await request(app)
+      .patch(`/admin/users/${member.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ role: 'SUPPORT' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.role).toBe('SUPPORT');
   });
 });

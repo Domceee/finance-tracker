@@ -1,4 +1,4 @@
-import type { AccountType, TransactionCategory } from './api';
+import type { AccountType, Role, TransactionCategory } from './api';
 
 export function formatCategoryLabel(category: TransactionCategory) {
   if (category === 'EATOUT') {
@@ -10,4 +10,8 @@ export function formatCategoryLabel(category: TransactionCategory) {
 
 export function formatAccountType(type: AccountType) {
   return type.charAt(0) + type.slice(1).toLowerCase();
+}
+
+export function formatRole(role: Role) {
+  return role.charAt(0) + role.slice(1).toLowerCase();
 }

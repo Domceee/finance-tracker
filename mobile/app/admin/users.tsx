@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { deleteAdminUser, getAdminUsers, updateAdminUser, type AdminUser } from '../../lib/api';
+import { deleteAdminUser, getAdminUsers, ROLES, updateAdminUser, type AdminUser, type Role } from '../../lib/api';
 import { confirmAction } from '../../lib/confirm';
+import { formatRole } from '../../lib/format';
 import { useAuth } from '../../providers/auth-provider';
 import { AppPalette } from '../../constants/theme';
 
@@ -12,9 +13,10 @@ export default function AdminUsersScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const isAdmin = currentUser?.role === 'ADMIN';
+  const canView = isAdmin || currentUser?.role === 'SUPPORT';
 
   const loadUsers = useCallback(async () => {
-    if (!isAdmin) {
+    if (!canView) {
       setIsLoading(false);
       return;
     }
@@ -29,7 +31,7 @@ export default function AdminUsersScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin]);
+  }, [canView]);
 
   useFocusEffect(
     useCallback(() => {
@@ -37,11 +39,10 @@ export default function AdminUsersScreen() {
     }, [loadUsers]),
   );
 
-  function handleToggleRole(target: AdminUser) {
-    const nextRole = target.role === 'ADMIN' ? 'USER' : 'ADMIN';
-    const label = nextRole === 'ADMIN' ? 'Make admin' : 'Remove admin';
+  function handleChangeRole(target: AdminUser, nextRole: Role) {
+    const label = `Make ${formatRole(nextRole).toLowerCase()}`;
 
-    confirmAction(label, `${label} for ${target.email}?`, label, async () => {
+    confirmAction('Change Role', `${label}: ${target.email}?`, label, async () => {
       setError('');
 
       try {
@@ -79,8 +80,12 @@ export default function AdminUsersScreen() {
 
       <Text style={styles.title}>Users</Text>
 
-      {!isAdmin ? (
-        <Text style={styles.emptyText}>Only admins can manage users.</Text>
+      {!isAdmin && canView ? (
+        <Text style={styles.readOnlyText}>Support view: read only</Text>
+      ) : null}
+
+      {!canView ? (
+        <Text style={styles.emptyText}>Only admins and support can view users.</Text>
       ) : isLoading ? (
         <ActivityIndicator size="large" color={AppPalette.accent} />
       ) : (
@@ -101,8 +106,8 @@ export default function AdminUsersScreen() {
                     <Text style={styles.itemTitle}>{item.name ?? 'No name'}</Text>
                     <Text style={styles.itemSubtitle}>{item.email}</Text>
                   </View>
-                  <Text style={item.role === 'ADMIN' ? styles.adminBadge : styles.userBadge}>
-                    {item.role === 'ADMIN' ? 'Admin' : 'User'}
+                  <Text style={item.role === 'USER' ? styles.userBadge : styles.adminBadge}>
+                    {formatRole(item.role)}
                   </Text>
                 </View>
 
@@ -111,17 +116,29 @@ export default function AdminUsersScreen() {
                   {isSelf ? ' · You' : ''}
                 </Text>
 
-                {isSelf ? null : (
-                  <View style={styles.actions}>
-                    <Pressable style={styles.actionButton} onPress={() => handleToggleRole(item)}>
-                      <Text style={styles.actionText}>
-                        {item.role === 'ADMIN' ? 'Remove admin' : 'Make admin'}
-                      </Text>
-                    </Pressable>
+                {isSelf || !isAdmin ? null : (
+                  <>
+                    <View style={styles.roleRow}>
+                      {ROLES.map((role) => {
+                        const isCurrent = item.role === role;
+
+                        return (
+                          <Pressable
+                            key={role}
+                            disabled={isCurrent}
+                            style={[styles.roleOption, isCurrent && styles.roleOptionActive]}
+                            onPress={() => handleChangeRole(item, role)}>
+                            <Text style={[styles.roleOptionText, isCurrent && styles.roleOptionTextActive]}>
+                              {formatRole(role)}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                     <Pressable style={styles.dangerButton} onPress={() => handleDelete(item)}>
                       <Text style={styles.dangerText}>Delete</Text>
                     </Pressable>
-                  </View>
+                  </>
                 )}
               </View>
             );
@@ -209,25 +226,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: AppPalette.muted,
   },
-  actions: {
+  roleRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginTop: 12,
   },
-  actionButton: {
+  roleOption: {
     flex: 1,
     borderWidth: 1,
-    borderColor: AppPalette.accent,
+    borderColor: AppPalette.muted,
     borderRadius: 12,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  actionText: {
+  roleOptionActive: {
+    borderColor: AppPalette.accent,
+    backgroundColor: AppPalette.accent,
+  },
+  roleOptionText: {
     color: AppPalette.accent,
     fontWeight: '700',
   },
+  roleOptionTextActive: {
+    color: AppPalette.void,
+  },
+  readOnlyText: {
+    color: AppPalette.muted,
+    marginBottom: 12,
+  },
   dangerButton: {
-    flex: 1,
+    marginTop: 10,
     borderWidth: 1,
     borderColor: AppPalette.danger,
     borderRadius: 12,

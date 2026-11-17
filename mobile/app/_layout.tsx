@@ -11,7 +11,6 @@ const PUBLIC_ROUTES = new Set([
   'verify-email',
   'forgot-password',
   'reset-password',
-  'guest',
 ]);
 const AUTH_ROUTES = new Set(['login', 'register', 'verify-email']);
 

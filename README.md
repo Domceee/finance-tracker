@@ -2,21 +2,18 @@
 Projekto tikslas – sukurti asmeninių finansų valdymo programėlę, kurioje naudotojas galėtų sekti savo pajamas ir išlaidas skirtingose sąskaitose, planuoti mėnesio biudžetus, matyti mėnesio išlaidų apžvalgą ir gauti dirbtinio intelekto sugeneruotus patarimus, kaip geriau tvarkyti savo finansus.
 
 Veikimo principas – projektą sudarys trys dalys:
--	Mobilioji ir internetinė aplikacija, kurią naudos svečiai, naudotojai ir administratoriai;
+-	Mobilioji ir internetinė aplikacija, kurią naudos naudotojai, pagalbos darbuotojai ir administratoriai;
 -	Serverinė dalis, kurioje bus visos aplikacijos programavimo sąsajos (API);
 -	Duomenų bazė, kurioje bus saugoma visa naudotojų, sąskaitų, transakcijų ir pastabų informacija.
 
 ## Funkciniai reikalavimai
-__Svečias__ galės:
+__Registruotas sistemos naudotojas__ galės:
 -	Prisiregistruoti prie sistemos (patvirtinant el. paštą vienkartiniu kodu);
 -	Prisijungti prie sistemos;
 -	Atkurti pamirštą slaptažodį;
--	Peržiūrėti valiutų kursus;
--	Peržiūrėti transakcijų kategorijų sąrašą.
-
-__Registruotas sistemos naudotojas__ galės:
--	Atlikti visus veiksmus kaip ir svečias;
 -	Atsijungti nuo sistemos;
+-	Peržiūrėti valiutų kursus;
+-	Peržiūrėti transakcijų kategorijų sąrašą;
 -	Valdyti sąskaitas:
     -	Sukurti sąskaitą;
     -	Redaguoti sąskaitą;
@@ -40,6 +37,11 @@ __Registruotas sistemos naudotojas__ galės:
 -	Peržiūrėti mėnesio pajamų ir išlaidų apžvalgą pagal kategorijas;
 -	Gauti dirbtinio intelekto sugeneruotas mėnesio išlaidų įžvalgas;
 -	Valdyti savo profilį: pakeisti nuotrauką, rodomą valiutą, slaptažodį arba ištrinti paskyrą.
+
+__Pagalbos darbuotojas__ galės:
+-	Atlikti visus veiksmus kaip ir prisijungęs naudotojas;
+-	Peržiūrėti visų naudotojų sąrašą;
+-	Peržiūrėti konkretaus naudotojo informaciją (be teisės keisti ar šalinti).
 
 __Sistemos administratorius__ galės:
 -	Atlikti visus veiksmus kaip ir prisijungęs naudotojas;

@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../providers/auth-provider';
 import { useCurrency } from '../../providers/currency-provider';
 import { changePassword, updateProfile, deleteUserAccount, SUPPORTED_CURRENCIES } from '../../lib/api';
+import { formatRole } from '../../lib/format';
 import { AppPalette } from '../../constants/theme';
 
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME!;
@@ -320,16 +321,16 @@ export default function ProfileScreen() {
         />
         <Text style={styles.name}>{user.name ?? 'No name set'}</Text>
         <Text style={styles.email}>{user.email}</Text>
-        {user.role === 'ADMIN' ? <Text style={styles.roleBadge}>Admin</Text> : null}
+        {user.role === 'USER' ? null : <Text style={styles.roleBadge}>{formatRole(user.role)}</Text>}
       </View>
 
       <View style={styles.section}>
-        {user.role === 'ADMIN' ? (
+        {user.role === 'USER' ? null : (
           <Pressable style={styles.actionButton} onPress={() => router.push('/admin/users')}>
-            <Text style={styles.actionButtonText}>Manage Users</Text>
-            <Text style={styles.actionButtonValue}>Admin</Text>
+            <Text style={styles.actionButtonText}>{user.role === 'ADMIN' ? 'Manage Users' : 'View Users'}</Text>
+            <Text style={styles.actionButtonValue}>{formatRole(user.role)}</Text>
           </Pressable>
-        ) : null}
+        )}
 
         <Pressable style={styles.actionButton} onPress={() => setShowChangePassword(true)}>
           <Text style={styles.actionButtonText}>Change Password</Text>

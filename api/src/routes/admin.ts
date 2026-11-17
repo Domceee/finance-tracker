@@ -18,7 +18,7 @@ const userSelect = {
   isVerified: true,
 } as const;
 
-router.use(requireAuth, requireRole(Role.ADMIN));
+router.use(requireAuth, requireRole(Role.ADMIN, Role.SUPPORT));
 
 router.get('/users', async (req, res) => {
   const pagination = parsePagination(req.query);
@@ -63,7 +63,7 @@ router.get('/users/:id', async (req, res) => {
   return res.json(user);
 });
 
-router.patch('/users/:id', async (req, res) => {
+router.patch('/users/:id', requireRole(Role.ADMIN), async (req, res) => {
   const id = parseId(req.params.id);
 
   if (id === null) {
@@ -102,7 +102,7 @@ router.patch('/users/:id', async (req, res) => {
   return res.json(updated);
 });
 
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', requireRole(Role.ADMIN), async (req, res) => {
   const id = parseId(req.params.id);
 
   if (id === null) {

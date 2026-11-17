@@ -10,10 +10,12 @@ info:
     AI-generated spending insights, exchange rates and admin user management.
 
     **Roles**
-    - **Guest** (no token): can register, log in, reset a password and read the public
-      endpoints.
     - **USER**: manages their own accounts, transactions, notes and budgets.
-    - **ADMIN**: everything a user can do, plus user management under `/admin`.
+    - **SUPPORT**: everything a user can do, plus read-only access to `/admin/users`
+      (list and view users, but not change or delete them).
+    - **ADMIN**: everything a user can do, plus full user management under `/admin`.
+
+    Registration, login, password reset, `/rates` and `/categories` need no token.
 
 servers:
   - url: https://{apiHost}
@@ -1362,7 +1364,7 @@ paths:
   /admin/users:
     get:
       tags: [Admin]
-      summary: List users (admin only)
+      summary: List users (admin or support)
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Limit"
@@ -1393,7 +1395,7 @@ paths:
       - $ref: "#/components/parameters/UserId"
     get:
       tags: [Admin]
-      summary: Get a user (admin only)
+      summary: Get a user (admin or support)
       responses:
         "200":
           description: User
@@ -1412,7 +1414,7 @@ paths:
     patch:
       tags: [Admin]
       summary: Change a user's role or name (admin only)
-      description: An admin cannot change their own role.
+      description: Admin only (SUPPORT gets 403). An admin cannot change their own role.
       requestBody:
         required: true
         content:
@@ -1445,7 +1447,7 @@ paths:
     delete:
       tags: [Admin]
       summary: Delete a user and all of their data (admin only)
-      description: An admin cannot delete their own account here.
+      description: Admin only (SUPPORT gets 403). An admin cannot delete their own account here.
       responses:
         "204":
           description: User deleted
@@ -1646,7 +1648,7 @@ components:
           example:
             error: Unauthorized
     Forbidden:
-      description: The user is not an admin
+      description: The user's role is not allowed to use this endpoint
       content:
         application/json:
           schema:
@@ -1838,7 +1840,7 @@ components:
 
     Role:
       type: string
-      enum: [USER, ADMIN]
+      enum: [USER, SUPPORT, ADMIN]
 
     AccountType:
       type: string
