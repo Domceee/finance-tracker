@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import app from '../app.js';
 import prisma from '../prisma.js';
 import { createAccount } from './helpers.js';
+import { signAccessToken } from '../lib/jwt.js';
 
 async function loginTestUser() {
   const email = `lists-${Date.now()}-${Math.random()}@example.com`;
@@ -108,6 +109,108 @@ describe.sequential('List endpoints', () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toHaveProperty('error');
+  });
+
+  it('filters transactions by category and account', async () => {
+    const { accessToken, userId } = await loginTestUser();
+    const card = await createAccount(userId, 'Card');
+    const cash = await createAccount(userId, 'Cash');
+    await seedTransactions(userId, card.id, 4);
+    await seedTransactions(userId, cash.id, 2);
+
+    const response = await request(app)
+      .get(`/transactions?category=FOOD&accountId=${card.id}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.map((t: { title: string }) => t.title)).toEqual(['Coffee 4', 'Coffee 2']);
+    expect(response.body.data.every((t: { accountId: number }) => t.accountId === card.id)).toBe(true);
+  });
+
+  it('filters an account transaction list through the nested route', async () => {
+    const { accessToken, userId } = await loginTestUser();
+    const account = await createAccount(userId);
+    await seedTransactions(userId, account.id, 4);
+
+    const response = await request(app)
+      .get(`/accounts/${account.id}/transactions?type=income&limit=1`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.map((t: { title: string }) => t.title)).toEqual(['Salary 3']);
+    expect(response.body.meta).toEqual({ page: 1, limit: 1, total: 2, totalPages: 2 });
+    expect(response.body._links.next.href).toBe(`/accounts/${account.id}/transactions?type=income&page=2&limit=1`);
+  });
+
+  it('searches accounts by name, case-insensitively', async () => {
+    const { accessToken, userId } = await loginTestUser();
+    await prisma.account.create({ data: { userId, name: 'Holiday Savings', type: 'SAVINGS' } });
+    await prisma.account.create({ data: { userId, name: 'Daily Card', type: 'CARD' } });
+
+    const response = await request(app)
+      .get('/accounts?search=SAVINGS')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.map((a: { name: string }) => a.name)).toEqual(['Holiday Savings']);
+  });
+
+  it('searches notes of a transaction', async () => {
+    const { accessToken, userId } = await loginTestUser();
+    const account = await createAccount(userId);
+    await seedTransactions(userId, account.id, 1);
+    const transaction = await prisma.transaction.findFirstOrThrow({ where: { userId } });
+    await prisma.note.createMany({
+      data: [
+        { transactionId: transaction.id, content: 'Paid by card' },
+        { transactionId: transaction.id, content: 'Receipt in drawer' },
+      ],
+    });
+
+    const response = await request(app)
+      .get(`/transactions/${transaction.id}/notes?search=receipt`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.map((n: { content: string }) => n.content)).toEqual(['Receipt in drawer']);
+    expect(response.body.data[0]._links.transaction.href).toBe(`/transactions/${transaction.id}`);
+  });
+
+  it('paginates and searches budgets', async () => {
+    const { accessToken, userId } = await loginTestUser();
+    await prisma.budget.createMany({
+      data: [
+        { userId, name: 'Food', limitAmount: 200, categories: 'FOOD' },
+        { userId, name: 'Fun', limitAmount: 100, categories: 'BAR,ENTERTAINMENT' },
+        { userId, name: 'Food out', limitAmount: 80, categories: 'EATOUT' },
+      ],
+    });
+
+    const response = await request(app)
+      .get('/budgets?search=food&limit=1&page=2')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.map((b: { name: string }) => b.name)).toEqual(['Food out']);
+    expect(response.body.meta).toEqual({ page: 2, limit: 1, total: 2, totalPages: 2 });
+  });
+
+  it('filters admin users by role and search', async () => {
+    const admin = await prisma.user.create({
+      data: { email: `admin-${Date.now()}@example.com`, name: 'Admin', role: 'ADMIN', isVerified: true },
+    });
+    await prisma.user.create({ data: { email: `ona-${Date.now()}@example.com`, name: 'Ona', isVerified: true } });
+    await prisma.user.create({ data: { email: `jonas-${Date.now()}@example.com`, name: 'Jonas', isVerified: true } });
+    const token = signAccessToken({ userId: admin.id, email: admin.email, role: 'ADMIN' });
+
+    const byRole = await request(app).get('/admin/users?role=USER').set('Authorization', `Bearer ${token}`);
+    const bySearch = await request(app).get('/admin/users?search=ona').set('Authorization', `Bearer ${token}`);
+    const badRole = await request(app).get('/admin/users?role=OWNER').set('Authorization', `Bearer ${token}`);
+
+    expect(byRole.status).toBe(200);
+    expect(byRole.body.data.map((u: { name: string }) => u.name)).toEqual(['Ona', 'Jonas']);
+    expect(bySearch.body.data.map((u: { name: string }) => u.name)).toEqual(['Ona', 'Jonas']);
+    expect(badRole.status).toBe(400);
   });
 
   it('returns an empty page past the end instead of an error', async () => {
