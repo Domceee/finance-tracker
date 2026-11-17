@@ -1,7 +1,11 @@
 import { Router } from 'express';
+import type { Note, Transaction } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { parseId } from '../lib/ids.js';
+import { noteLinks, transactionLinks, withLinks } from '../lib/links.js';
+import { parseNoteFilters, parseTransactionFilters } from '../lib/list-filters.js';
+import { INVALID_PAGINATION_MESSAGE, listResponse, parsePagination } from '../lib/pagination.js';
 import { validateTransactionCreate, validateTransactionUpdate } from '../lib/transaction-input.js';
 
 const router = Router();
@@ -16,15 +20,41 @@ async function isOwnedAccount(accountId: number, userId: number) {
   return account !== null;
 }
 
+function presentTransaction(transaction: Transaction) {
+  return withLinks(transaction, transactionLinks(transaction));
+}
+
+function presentNote(note: Note) {
+  return withLinks(note, noteLinks(note));
+}
+
 router.get('/', async (req, res) => {
   const userId = req.user!.userId;
+  const pagination = parsePagination(req.query);
 
-  const transactions = await prisma.transaction.findMany({
-    where: { userId },
-    orderBy: { date: 'desc' },
-  });
+  if (!pagination) {
+    return res.status(400).json({ error: INVALID_PAGINATION_MESSAGE });
+  }
 
-  res.json(transactions);
+  const filters = parseTransactionFilters(req.query);
+
+  if ('error' in filters) {
+    return res.status(400).json({ error: filters.error });
+  }
+
+  const where = { ...filters.where, userId };
+
+  const [transactions, total] = await prisma.$transaction([
+    prisma.transaction.findMany({
+      where,
+      orderBy: [{ date: 'desc' }, { id: 'desc' }],
+      skip: pagination.skip,
+      take: pagination.limit,
+    }),
+    prisma.transaction.count({ where }),
+  ]);
+
+  return res.json(listResponse(req, transactions.map(presentTransaction), total, pagination));
 });
 
 router.post('/', async (req, res) => {
@@ -43,7 +73,7 @@ router.post('/', async (req, res) => {
     data: { ...result.data, userId },
   });
 
-  return res.status(201).json(transaction);
+  return res.status(201).json(presentTransaction(transaction));
 });
 
 router.get('/:id', async (req, res) => {
@@ -62,7 +92,7 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Transaction not found' });
   }
 
-  return res.json(transaction);
+  return res.json(presentTransaction(transaction));
 });
 
 router.get('/:id/notes', async (req, res) => {
@@ -73,6 +103,18 @@ router.get('/:id/notes', async (req, res) => {
     return res.status(400).json({ error: 'Invalid transaction ID' });
   }
 
+  const pagination = parsePagination(req.query);
+
+  if (!pagination) {
+    return res.status(400).json({ error: INVALID_PAGINATION_MESSAGE });
+  }
+
+  const filters = parseNoteFilters(req.query);
+
+  if ('error' in filters) {
+    return res.status(400).json({ error: filters.error });
+  }
+
   const transaction = await prisma.transaction.findFirst({
     where: { id, userId },
   });
@@ -81,12 +123,19 @@ router.get('/:id/notes', async (req, res) => {
     return res.status(404).json({ error: 'Transaction not found' });
   }
 
-  const notes = await prisma.note.findMany({
-    where: { transactionId: id },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-  });
+  const where = { ...filters.where, transactionId: id };
 
-  return res.json(notes);
+  const [notes, total] = await prisma.$transaction([
+    prisma.note.findMany({
+      where,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      skip: pagination.skip,
+      take: pagination.limit,
+    }),
+    prisma.note.count({ where }),
+  ]);
+
+  return res.json(listResponse(req, notes.map(presentNote), total, pagination));
 });
 
 router.post('/:id/notes', async (req, res) => {
@@ -115,7 +164,7 @@ router.post('/:id/notes', async (req, res) => {
     data: { transactionId: id, content: content.trim() },
   });
 
-  return res.status(201).json(note);
+  return res.status(201).json(presentNote(note));
 });
 
 router.delete('/:id', async (req, res) => {
@@ -172,7 +221,7 @@ router.patch('/:id', async (req, res) => {
     data: result.data,
   });
 
-  return res.json(updatedTransaction);
+  return res.json(presentTransaction(updatedTransaction));
 });
 
 export default router;

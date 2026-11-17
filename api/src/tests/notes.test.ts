@@ -116,7 +116,7 @@ describe.sequential('Notes API', () => {
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.map((n: { content: string }) => n.content)).toEqual(['First', 'Second']);
+    expect(response.body.data.map((n: { content: string }) => n.content)).toEqual(['First', 'Second']);
   });
 
   it('GET /transactions/:id/notes returns 404 for another user\'s transaction', async () => {

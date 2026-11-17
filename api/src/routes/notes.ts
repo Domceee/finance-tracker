@@ -2,6 +2,7 @@ import { Router } from 'express';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { parseId } from '../lib/ids.js';
+import { noteLinks, withLinks } from '../lib/links.js';
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Note not found' });
   }
 
-  return res.json(note);
+  return res.json(withLinks(note, noteLinks(note)));
 });
 
 router.patch('/:id', async (req, res) => {
@@ -55,7 +56,7 @@ router.patch('/:id', async (req, res) => {
     data: { content: content.trim() },
   });
 
-  return res.json(updated);
+  return res.json(withLinks(updated, noteLinks(updated)));
 });
 
 router.delete('/:id', async (req, res) => {

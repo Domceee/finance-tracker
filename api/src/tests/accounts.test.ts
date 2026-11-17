@@ -72,8 +72,8 @@ describe.sequential('Accounts API', () => {
       .set('Authorization', `Bearer ${loginResponse.body.accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(1);
-    expect(response.body[0]).toMatchObject({ name: 'Main', type: 'OTHER', balance: 0 });
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0]).toMatchObject({ name: 'Main', type: 'OTHER', balance: 0 });
   });
 
   it('creates a default Main account on register for a new user', async () => {
@@ -103,8 +103,8 @@ describe.sequential('Accounts API', () => {
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(1);
-    expect(response.body[0]).toMatchObject({ id: account.id, name: 'Card', balance: 69.75 });
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0]).toMatchObject({ id: account.id, name: 'Card', balance: 69.75 });
   });
 
   it('POST /accounts creates an account', async () => {
@@ -285,7 +285,7 @@ describe.sequential('Accounts API', () => {
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.map((t: { title: string }) => t.title)).toEqual(['Newer', 'Older']);
+    expect(response.body.data.map((t: { title: string }) => t.title)).toEqual(['Newer', 'Older']);
   });
 
   it('GET /accounts/:id/transactions returns 404 for another user\'s account', async () => {

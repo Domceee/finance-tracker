@@ -46,7 +46,7 @@ describe.sequential('Budgets API', () => {
     const response = await request(app).get('/budgets').set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual([]);
+    expect(response.body.data).toEqual([]);
   });
 
   it('GET /budgets returns budgets with current-month spending', async () => {
@@ -74,11 +74,11 @@ describe.sequential('Budgets API', () => {
     const response = await request(app).get('/budgets').set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(1);
-    expect(response.body[0].name).toBe('Food Budget');
-    expect(response.body[0].limitAmount).toBe(200);
-    expect(response.body[0].spent).toBe(15);
-    expect(response.body[0].categories).toEqual(['FOOD']);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0].name).toBe('Food Budget');
+    expect(response.body.data[0].limitAmount).toBe(200);
+    expect(response.body.data[0].spent).toBe(15);
+    expect(response.body.data[0].categories).toEqual(['FOOD']);
   });
 
   it('GET /budgets excludes transactions from other months', async () => {
@@ -106,7 +106,7 @@ describe.sequential('Budgets API', () => {
     const response = await request(app).get('/budgets').set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
-    expect(response.body[0].spent).toBe(0);
+    expect(response.body.data[0].spent).toBe(0);
   });
 
   it('GET /budgets uses UTC month boundaries regardless of server timezone', async () => {
@@ -139,7 +139,7 @@ describe.sequential('Budgets API', () => {
     const response = await request(app).get('/budgets').set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
-    expect(response.body[0].spent).toBe(0);
+    expect(response.body.data[0].spent).toBe(0);
   });
 
   it('GET /budgets/:id returns an own budget with current-month spending', async () => {

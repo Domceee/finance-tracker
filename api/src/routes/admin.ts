@@ -3,6 +3,8 @@ import { Role } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { parseId } from '../lib/ids.js';
+import { parseUserFilters } from '../lib/list-filters.js';
+import { INVALID_PAGINATION_MESSAGE, listResponse, parsePagination } from '../lib/pagination.js';
 
 const router = Router();
 const roles = new Set<string>(Object.values(Role));
@@ -18,13 +20,31 @@ const userSelect = {
 
 router.use(requireAuth, requireRole(Role.ADMIN));
 
-router.get('/users', async (_req, res) => {
-  const users = await prisma.user.findMany({
-    select: userSelect,
-    orderBy: { id: 'asc' },
-  });
+router.get('/users', async (req, res) => {
+  const pagination = parsePagination(req.query);
 
-  return res.json(users);
+  if (!pagination) {
+    return res.status(400).json({ error: INVALID_PAGINATION_MESSAGE });
+  }
+
+  const filters = parseUserFilters(req.query);
+
+  if ('error' in filters) {
+    return res.status(400).json({ error: filters.error });
+  }
+
+  const [users, total] = await prisma.$transaction([
+    prisma.user.findMany({
+      where: filters.where,
+      select: userSelect,
+      orderBy: { id: 'asc' },
+      skip: pagination.skip,
+      take: pagination.limit,
+    }),
+    prisma.user.count({ where: filters.where }),
+  ]);
+
+  return res.json(listResponse(req, users, total, pagination));
 });
 
 router.get('/users/:id', async (req, res) => {

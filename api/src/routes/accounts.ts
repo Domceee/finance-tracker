@@ -3,6 +3,9 @@ import { AccountType, type Account } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { parseId } from '../lib/ids.js';
+import { accountLinks, transactionLinks, withLinks } from '../lib/links.js';
+import { parseAccountFilters, parseTransactionFilters } from '../lib/list-filters.js';
+import { INVALID_PAGINATION_MESSAGE, listResponse, parsePagination } from '../lib/pagination.js';
 
 const router = Router();
 const accountTypes = new Set<string>(Object.values(AccountType));
@@ -40,19 +43,47 @@ async function withBalances(accounts: Account[]) {
   }));
 }
 
+async function presentAccounts(accounts: Account[]) {
+  const accountsWithBalances = await withBalances(accounts);
+  return accountsWithBalances.map((account) => withLinks(account, accountLinks(account)));
+}
+
+async function presentAccount(account: Account) {
+  const [result] = await presentAccounts([account]);
+  return result;
+}
+
 async function findOwnedAccount(id: number, userId: number) {
   return prisma.account.findFirst({ where: { id, userId } });
 }
 
 router.get('/', async (req, res) => {
   const userId = req.user!.userId;
+  const pagination = parsePagination(req.query);
 
-  const accounts = await prisma.account.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'asc' },
-  });
+  if (!pagination) {
+    return res.status(400).json({ error: INVALID_PAGINATION_MESSAGE });
+  }
 
-  return res.json(await withBalances(accounts));
+  const filters = parseAccountFilters(req.query);
+
+  if ('error' in filters) {
+    return res.status(400).json({ error: filters.error });
+  }
+
+  const where = { ...filters.where, userId };
+
+  const [accounts, total] = await prisma.$transaction([
+    prisma.account.findMany({
+      where,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      skip: pagination.skip,
+      take: pagination.limit,
+    }),
+    prisma.account.count({ where }),
+  ]);
+
+  return res.json(listResponse(req, await presentAccounts(accounts), total, pagination));
 });
 
 router.post('/', async (req, res) => {
@@ -75,8 +106,7 @@ router.post('/', async (req, res) => {
     },
   });
 
-  const [result] = await withBalances([account]);
-  return res.status(201).json(result);
+  return res.status(201).json(await presentAccount(account));
 });
 
 router.get('/:id', async (req, res) => {
@@ -93,8 +123,7 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Account not found' });
   }
 
-  const [result] = await withBalances([account]);
-  return res.json(result);
+  return res.json(await presentAccount(account));
 });
 
 router.patch('/:id', async (req, res) => {
@@ -129,8 +158,7 @@ router.patch('/:id', async (req, res) => {
     },
   });
 
-  const [result] = await withBalances([updated]);
-  return res.json(result);
+  return res.json(await presentAccount(updated));
 });
 
 router.delete('/:id', async (req, res) => {
@@ -160,18 +188,39 @@ router.get('/:id/transactions', async (req, res) => {
     return res.status(400).json({ error: 'Invalid account ID' });
   }
 
+  const pagination = parsePagination(req.query);
+
+  if (!pagination) {
+    return res.status(400).json({ error: INVALID_PAGINATION_MESSAGE });
+  }
+
+  const filters = parseTransactionFilters(req.query);
+
+  if ('error' in filters) {
+    return res.status(400).json({ error: filters.error });
+  }
+
   const account = await findOwnedAccount(id, userId);
 
   if (!account) {
     return res.status(404).json({ error: 'Account not found' });
   }
 
-  const transactions = await prisma.transaction.findMany({
-    where: { accountId: id, userId },
-    orderBy: { date: 'desc' },
-  });
+  const where = { ...filters.where, accountId: id, userId };
 
-  return res.json(transactions);
+  const [transactions, total] = await prisma.$transaction([
+    prisma.transaction.findMany({
+      where,
+      orderBy: [{ date: 'desc' }, { id: 'desc' }],
+      skip: pagination.skip,
+      take: pagination.limit,
+    }),
+    prisma.transaction.count({ where }),
+  ]);
+
+  const items = transactions.map((transaction) => withLinks(transaction, transactionLinks(transaction)));
+
+  return res.json(listResponse(req, items, total, pagination));
 });
 
 export default router;

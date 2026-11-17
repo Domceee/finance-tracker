@@ -64,7 +64,7 @@ describe.sequential('Transactions API', () => {
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual([]);
+    expect(response.body.data).toEqual([]);
   });
 
   it('creates a transaction for the logged-in user', async () => {
@@ -258,9 +258,9 @@ describe.sequential('Transactions API', () => {
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(2);
-    expect(response.body[0].title).toBe('Newer transaction');
-    expect(response.body[1].title).toBe('Older transaction');
+    expect(response.body.data).toHaveLength(2);
+    expect(response.body.data[0].title).toBe('Newer transaction');
+    expect(response.body.data[1].title).toBe('Older transaction');
   });
 
   it('gets a transaction owned by the logged-in user', async () => {

@@ -6,6 +6,18 @@ if (!BASE_URL) {
   throw new Error('API_BASE_URL environment variable is not defined');
 }
 
+const LIST_LIMIT = 100;
+
+export type Paginated<T> = {
+  data: T[];
+  meta: { page: number; limit: number; total: number; totalPages: number };
+};
+
+async function readList<T>(response: Response): Promise<T[]> {
+  const body: Paginated<T> = await response.json();
+  return body.data;
+}
+
 export type Transaction = {
   id: number;
   title: string;
@@ -215,13 +227,13 @@ export async function logoutSession(refreshToken: string): Promise<void> {
 }
 
 export async function getTransactions(): Promise<Transaction[]> {
-  const response = await apiFetch('/transactions');
+  const response = await apiFetch(`/transactions?limit=${LIST_LIMIT}`);
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch transactions'));
   }
 
-  return response.json();
+  return readList(response);
 }
 
 export async function createTransaction(input: CreateTransactionInput): Promise<Transaction> {
@@ -248,13 +260,13 @@ export async function getTransaction(id: number): Promise<Transaction> {
 }
 
 export async function getAccounts(): Promise<Account[]> {
-  const response = await apiFetch('/accounts');
+  const response = await apiFetch(`/accounts?limit=${LIST_LIMIT}`);
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch accounts'));
   }
 
-  return response.json();
+  return readList(response);
 }
 
 export async function getAccount(id: number): Promise<Account> {
@@ -304,23 +316,23 @@ export async function deleteAccount(id: number): Promise<void> {
 }
 
 export async function getAccountTransactions(id: number): Promise<Transaction[]> {
-  const response = await apiFetch(`/accounts/${id}/transactions`);
+  const response = await apiFetch(`/accounts/${id}/transactions?limit=${LIST_LIMIT}`);
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch account transactions'));
   }
 
-  return response.json();
+  return readList(response);
 }
 
 export async function getTransactionNotes(transactionId: number): Promise<Note[]> {
-  const response = await apiFetch(`/transactions/${transactionId}/notes`);
+  const response = await apiFetch(`/transactions/${transactionId}/notes?limit=${LIST_LIMIT}`);
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch notes'));
   }
 
-  return response.json();
+  return readList(response);
 }
 
 export async function createNote(transactionId: number, content: string): Promise<Note> {
@@ -370,13 +382,13 @@ export async function getCategories(): Promise<TransactionCategory[]> {
 }
 
 export async function getAdminUsers(): Promise<AdminUser[]> {
-  const response = await apiFetch('/admin/users');
+  const response = await apiFetch(`/admin/users?limit=${LIST_LIMIT}`);
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch users'));
   }
 
-  return response.json();
+  return readList(response);
 }
 
 export async function updateAdminUser(
@@ -475,13 +487,13 @@ export type RatesResponse = {
 };
 
 export async function getBudgets(): Promise<Budget[]> {
-  const response = await apiFetch('/budgets');
+  const response = await apiFetch(`/budgets?limit=${LIST_LIMIT}`);
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch budgets'));
   }
 
-  return response.json();
+  return readList(response);
 }
 
 export async function createBudget(input: CreateBudgetInput): Promise<Budget> {

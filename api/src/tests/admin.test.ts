@@ -60,10 +60,10 @@ describe.sequential('Admin API', () => {
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.map((u: { id: number }) => u.id)).toEqual([admin.id, member.id]);
-    expect(response.body[1]).toMatchObject({ email: member.email, role: 'USER', isVerified: true });
-    expect(response.body[1]).not.toHaveProperty('passwordHash');
-    expect(response.body[1]).not.toHaveProperty('verificationCode');
+    expect(response.body.data.map((u: { id: number }) => u.id)).toEqual([admin.id, member.id]);
+    expect(response.body.data[1]).toMatchObject({ email: member.email, role: 'USER', isVerified: true });
+    expect(response.body.data[1]).not.toHaveProperty('passwordHash');
+    expect(response.body.data[1]).not.toHaveProperty('verificationCode');
   });
 
   it('GET /admin/users/:id returns a user', async () => {

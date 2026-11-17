@@ -3,6 +3,8 @@ import type { Budget } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { parseId } from '../lib/ids.js';
+import { parseBudgetFilters } from '../lib/list-filters.js';
+import { INVALID_PAGINATION_MESSAGE, listResponse, parsePagination } from '../lib/pagination.js';
 
 const router = Router();
 
@@ -51,9 +53,28 @@ async function buildBudgetResponse(budget: Budget) {
 router.get('/', requireAuth, async (req, res) => {
   const userId = req.user!.userId;
   const { start, end } = getCurrentMonthRange();
+  const pagination = parsePagination(req.query);
 
-  const [budgets, transactions] = await Promise.all([
-    prisma.budget.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } }),
+  if (!pagination) {
+    return res.status(400).json({ error: INVALID_PAGINATION_MESSAGE });
+  }
+
+  const filters = parseBudgetFilters(req.query);
+
+  if ('error' in filters) {
+    return res.status(400).json({ error: filters.error });
+  }
+
+  const where = { ...filters.where, userId };
+
+  const [budgets, total, transactions] = await Promise.all([
+    prisma.budget.findMany({
+      where,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      skip: pagination.skip,
+      take: pagination.limit,
+    }),
+    prisma.budget.count({ where }),
     prisma.transaction.findMany({
       where: { userId, type: 'expense', date: { gte: start, lt: end } },
       select: { category: true, amount: true },
@@ -76,7 +97,7 @@ router.get('/', requireAuth, async (req, res) => {
     };
   });
 
-  return res.json(result);
+  return res.json(listResponse(req, result, total, pagination));
 });
 
 router.get('/:id', requireAuth, async (req, res) => {
