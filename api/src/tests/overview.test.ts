@@ -71,6 +71,17 @@ describe.sequential('Overview API', () => {
     expect(response.body).toEqual({ error: 'Invalid year or month' });
   });
 
+  it('returns 400 for an out-of-range year', async () => {
+    const { accessToken } = await loginTestUser();
+
+    const response = await request(app)
+      .get('/overview?year=1e20&month=1')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid year or month' });
+  });
+
   it('returns monthly totals for the selected month only', async () => {
     const { accessToken, user, account } = await loginTestUser();
     const otherUser = await createTestUser();

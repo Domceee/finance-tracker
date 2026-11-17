@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { AccountType, type Account } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
+import { parseId } from '../lib/ids.js';
 
 const router = Router();
 const accountTypes = new Set<string>(Object.values(AccountType));
@@ -80,9 +81,9 @@ router.post('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid account ID' });
   }
 
@@ -98,9 +99,9 @@ router.get('/:id', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid account ID' });
   }
 
@@ -134,9 +135,9 @@ router.patch('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid account ID' });
   }
 
@@ -153,9 +154,9 @@ router.delete('/:id', async (req, res) => {
 
 router.get('/:id/transactions', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid account ID' });
   }
 

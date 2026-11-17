@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
+import { parseId } from '../lib/ids.js';
 
 const router = Router();
 
@@ -14,9 +15,9 @@ async function findOwnedNote(id: number, userId: number) {
 
 router.get('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid note ID' });
   }
 
@@ -31,9 +32,9 @@ router.get('/:id', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid note ID' });
   }
 
@@ -59,9 +60,9 @@ router.patch('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid note ID' });
   }
 

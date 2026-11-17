@@ -1,23 +1,16 @@
 import { Router } from 'express';
-import { TransactionCategory } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
+import { parseId } from '../lib/ids.js';
+import { validateTransactionCreate, validateTransactionUpdate } from '../lib/transaction-input.js';
 
 const router = Router();
-const transactionCategories = new Set(Object.values(TransactionCategory));
-const expenseCategories = new Set(
-  Object.values(TransactionCategory).filter((category) => category !== TransactionCategory.SALARY),
-);
 
 router.use(requireAuth);
 
-async function isOwnedAccount(accountId: unknown, userId: number) {
-  if (!Number.isInteger(accountId)) {
-    return false;
-  }
-
+async function isOwnedAccount(accountId: number, userId: number) {
   const account = await prisma.account.findFirst({
-    where: { id: accountId as number, userId },
+    where: { id: accountId, userId },
   });
 
   return account !== null;
@@ -36,63 +29,28 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const userId = req.user!.userId;
-  const { title, amount, type, category, date, description, accountId } = req.body;
-  const parsedAmount = Number(amount);
+  const result = validateTransactionCreate(req.body);
 
-  if (!Number.isFinite(parsedAmount) || parsedAmount === 0) {
-    return res.status(400).json({ error: 'Amount cannot be 0' });
+  if ('error' in result) {
+    return res.status(400).json({ error: result.error });
   }
 
-  if (accountId === undefined || accountId === null) {
-    return res.status(400).json({ error: 'Account is required' });
-  }
-
-  if (!(await isOwnedAccount(accountId, userId))) {
+  if (!(await isOwnedAccount(result.data.accountId, userId))) {
     return res.status(400).json({ error: 'Invalid account' });
   }
 
-  if (type === 'income') {
-    const transaction = await prisma.transaction.create({
-      data: {
-        title,
-        amount: parsedAmount,
-        type,
-        category: TransactionCategory.SALARY,
-        date: new Date(date),
-        description,
-        userId,
-        accountId,
-      },
-    });
-
-    return res.status(201).json(transaction);
-  }
-
-  if (!transactionCategories.has(category) || !expenseCategories.has(category)) {
-    return res.status(400).json({ error: 'Invalid transaction category' });
-  }
-
   const transaction = await prisma.transaction.create({
-    data: {
-      title,
-      amount: parsedAmount,
-      type,
-      category,
-      date: new Date(date),
-      description,
-      userId,
-      accountId,
-    },
+    data: { ...result.data, userId },
   });
 
-  res.status(201).json(transaction);
+  return res.status(201).json(transaction);
 });
 
 router.get('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (Number.isNaN(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid transaction ID' });
   }
 
@@ -109,9 +67,9 @@ router.get('/:id', async (req, res) => {
 
 router.get('/:id/notes', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (Number.isNaN(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid transaction ID' });
   }
 
@@ -133,9 +91,9 @@ router.get('/:id/notes', async (req, res) => {
 
 router.post('/:id/notes', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (Number.isNaN(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid transaction ID' });
   }
 
@@ -162,9 +120,9 @@ router.post('/:id/notes', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (Number.isNaN(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid transaction ID' });
   }
 
@@ -185,13 +143,11 @@ router.delete('/:id', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (Number.isNaN(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid transaction ID' });
   }
-
-  const { title, amount, type, category, date, description, accountId } = req.body;
 
   const existingTransaction = await prisma.transaction.findFirst({
     where: { id, userId },
@@ -201,34 +157,19 @@ router.patch('/:id', async (req, res) => {
     return res.status(404).json({ error: 'Transaction not found' });
   }
 
-  if (accountId !== undefined && !(await isOwnedAccount(accountId, userId))) {
+  const result = validateTransactionUpdate(req.body, existingTransaction);
+
+  if ('error' in result) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  if (result.data.accountId !== undefined && !(await isOwnedAccount(result.data.accountId, userId))) {
     return res.status(400).json({ error: 'Invalid account' });
-  }
-
-  const nextType = type ?? existingTransaction.type;
-  const nextCategory =
-    nextType === 'income' ? TransactionCategory.SALARY : category ?? existingTransaction.category;
-  const parsedAmount = amount !== undefined ? Number(amount) : undefined;
-
-  if (parsedAmount !== undefined && (!Number.isFinite(parsedAmount) || parsedAmount === 0)) {
-    return res.status(400).json({ error: 'Amount cannot be 0' });
-  }
-
-  if (!transactionCategories.has(nextCategory) || (nextType !== 'income' && !expenseCategories.has(nextCategory))) {
-    return res.status(400).json({ error: 'Invalid transaction category' });
   }
 
   const updatedTransaction = await prisma.transaction.update({
     where: { id },
-    data: {
-      ...(title !== undefined && { title }),
-      ...(parsedAmount !== undefined && { amount: parsedAmount }),
-      ...(type !== undefined && { type }),
-      category: nextCategory,
-      ...(date !== undefined && { date: new Date(date) }),
-      ...(description !== undefined && { description }),
-      ...(accountId !== undefined && { accountId }),
-    },
+    data: result.data,
   });
 
   return res.json(updatedTransaction);

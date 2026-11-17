@@ -26,6 +26,10 @@ export function parseYearMonth(
     return null;
   }
 
+  if (year < 1900 || year > 2100) {
+    return null;
+  }
+
   return { year, month };
 }
 

@@ -209,7 +209,7 @@ describe.sequential('Transactions API', () => {
       });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'Amount cannot be 0' });
+    expect(response.body).toEqual({ error: 'Amount must be greater than 0' });
   });
 
   it('returns only the logged-in user transactions ordered by date descending', async () => {
@@ -501,7 +501,7 @@ describe.sequential('Transactions API', () => {
       });
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'Amount cannot be 0' });
+    expect(response.body).toEqual({ error: 'Amount must be greater than 0' });
   });
 
   it('deletes a transaction owned by the logged-in user', async () => {
@@ -583,5 +583,54 @@ describe.sequential('Transactions API', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'Transaction not found' });
+  });
+
+  it.each([
+    [{ title: '' }, 'Title is required'],
+    [{ type: 'transfer' }, "Type must be 'income' or 'expense'"],
+    [{ date: 'not-a-date' }, 'Date must be a valid date'],
+    [{ date: undefined }, 'Date must be a valid date'],
+    [{ amount: -5 }, 'Amount must be greater than 0'],
+    [{ description: 42 }, 'Description must be a string'],
+    [{ accountId: 'abc' }, 'Invalid account'],
+  ])('rejects invalid create field %o', async (override, error) => {
+    const { accessToken, account } = await loginTestUser();
+
+    const response = await request(app)
+      .post('/transactions')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        title: 'Groceries',
+        amount: 24.5,
+        type: 'expense',
+        category: 'FOOD',
+        date: '2026-04-02T12:00:00.000Z',
+        accountId: account.id,
+        ...override,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error });
+  });
+
+  it('returns 400 instead of 500 when creating with an empty body', async () => {
+    const { accessToken } = await loginTestUser();
+
+    const response = await request(app)
+      .post('/transactions')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(400);
+  });
+
+  it.each(['1.5', '-1', '99999999999'])('returns 400 for transaction id %s', async (id) => {
+    const { accessToken } = await loginTestUser();
+
+    const response = await request(app)
+      .get(`/transactions/${id}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid transaction ID' });
   });
 });

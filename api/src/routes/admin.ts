@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Role } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { parseId } from '../lib/ids.js';
 
 const router = Router();
 const roles = new Set<string>(Object.values(Role));
@@ -27,9 +28,9 @@ router.get('/users', async (_req, res) => {
 });
 
 router.get('/users/:id', async (req, res) => {
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
 
@@ -43,9 +44,9 @@ router.get('/users/:id', async (req, res) => {
 });
 
 router.patch('/users/:id', async (req, res) => {
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
 
@@ -82,9 +83,9 @@ router.patch('/users/:id', async (req, res) => {
 });
 
 router.delete('/users/:id', async (req, res) => {
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
 

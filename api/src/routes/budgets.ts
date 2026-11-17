@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Budget } from '@prisma/client';
 import prisma from '../prisma.js';
 import { requireAuth } from '../middleware/auth.js';
+import { parseId } from '../lib/ids.js';
 
 const router = Router();
 
@@ -80,9 +81,9 @@ router.get('/', requireAuth, async (req, res) => {
 
 router.get('/:id', requireAuth, async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid budget id' });
   }
 
@@ -137,9 +138,9 @@ router.post('/', requireAuth, async (req, res) => {
 
 router.patch('/:id', requireAuth, async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid budget id' });
   }
 
@@ -183,9 +184,9 @@ router.patch('/:id', requireAuth, async (req, res) => {
 
 router.delete('/:id', requireAuth, async (req, res) => {
   const userId = req.user!.userId;
-  const id = Number(req.params.id);
+  const id = parseId(req.params.id);
 
-  if (!Number.isInteger(id)) {
+  if (id === null) {
     return res.status(400).json({ error: 'Invalid budget id' });
   }
 
