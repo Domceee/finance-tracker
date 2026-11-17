@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { AppPalette } from '../../constants/theme';
@@ -13,6 +13,7 @@ import {
 } from '../../lib/api';
 import { formatCategoryLabel } from '../../lib/format';
 import { useCurrency } from '../../providers/currency-provider';
+import { useToast } from '../../providers/toast-provider';
 
 const CHART_COLORS: Record<TransactionCategory, string> = {
   FOOD: '#A78BFA',
@@ -158,6 +159,7 @@ function SpendingPieChart({ data }: { data: OverviewCategoryBreakdown[] }) {
 
 export default function OverviewScreen() {
   const { formatCurrency } = useCurrency();
+  const toast = useToast();
   const isFocused = useIsFocused();
   const currentMonth = getCurrentMonthSelection();
   const [selectedMonth, setSelectedMonth] = useState<MonthSelection>(currentMonth);
@@ -205,9 +207,7 @@ export default function OverviewScreen() {
       setInsightsGeneratedAt(result.generatedAt);
       setIsInsightsCached(result.cached);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to fetch overview insights';
-
-      Alert.alert('AI Insights', message);
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch overview insights');
     } finally {
       setIsInsightsLoading(false);
     }

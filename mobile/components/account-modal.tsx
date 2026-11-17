@@ -8,9 +8,10 @@ import {
   type Account,
   type AccountType,
 } from '../lib/api';
-import { confirmAction } from '../lib/confirm';
 import { formatAccountType } from '../lib/format';
 import { AppPalette } from '../constants/theme';
+import { useConfirm } from '../providers/confirm-provider';
+import { useToast } from '../providers/toast-provider';
 
 export function AccountModal({
   visible,
@@ -25,6 +26,8 @@ export function AccountModal({
   onSaved: (account: Account) => void;
   onDeleted?: (id: number) => void;
 }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [name, setName] = useState('');
   const [type, setType] = useState<AccountType>('CARD');
   const [isSaving, setIsSaving] = useState(false);
@@ -60,23 +63,25 @@ export function AccountModal({
     }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!account) return;
 
-    confirmAction(
-      'Delete Account',
-      `Delete "${account.name}" and all of its transactions? This cannot be undone.`,
-      'Delete',
-      async () => {
-        try {
-          await deleteAccount(account.id);
-          onDeleted?.(account.id);
-          onClose();
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to delete account');
-        }
-      },
-    );
+    const confirmed = await confirm({
+      title: 'Delete Account',
+      message: `Delete "${account.name}" and all of its transactions? This cannot be undone.`,
+      confirmLabel: 'Delete',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await deleteAccount(account.id);
+      onDeleted?.(account.id);
+      onClose();
+      toast.success('Account deleted');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete account');
+    }
   }
 
   return (

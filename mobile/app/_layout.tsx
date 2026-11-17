@@ -2,6 +2,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '../providers/auth-provider';
 import { CurrencyProvider } from '../providers/currency-provider';
+import { ToastProvider } from '../providers/toast-provider';
+import { ConfirmProvider } from '../providers/confirm-provider';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
@@ -60,7 +62,11 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <CurrencyProvider>
-        <AppNavigation />
+        <ToastProvider>
+          <ConfirmProvider>
+            <AppNavigation />
+          </ConfirmProvider>
+        </ToastProvider>
       </CurrencyProvider>
     </AuthProvider>
   );

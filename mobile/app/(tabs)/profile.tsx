@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Modal,
@@ -16,6 +15,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useAuth } from '../../providers/auth-provider';
 import { useCurrency } from '../../providers/currency-provider';
+import { useConfirm } from '../../providers/confirm-provider';
+import { useToast } from '../../providers/toast-provider';
 import { changePassword, updateProfile, deleteUserAccount, SUPPORTED_CURRENCIES } from '../../lib/api';
 import { formatRole } from '../../lib/format';
 import { AppPalette } from '../../constants/theme';
@@ -74,6 +75,7 @@ function Avatar({ name, email, avatarUrl, onPress, isUploading }: {
 }
 
 function ChangePasswordModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const toast = useToast();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -112,7 +114,7 @@ function ChangePasswordModal({ visible, onClose }: { visible: boolean; onClose: 
       await changePassword(currentPassword, newPassword);
       reset();
       onClose();
-      Alert.alert('Success', 'Your password has been updated.');
+      toast.success('Your password has been updated');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to change password');
     } finally {
@@ -234,6 +236,8 @@ function CurrencyPickerModal({ visible, onClose }: { visible: boolean; onClose: 
 export default function ProfileScreen() {
   const { user, logout, updateUser } = useAuth();
   const { currency } = useCurrency();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -247,7 +251,7 @@ export default function ProfileScreen() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Allow access to your photo library to set a profile picture.');
+      toast.error('Allow access to your photo library to set a profile picture');
       return;
     }
 
@@ -269,8 +273,9 @@ export default function ProfileScreen() {
       const cloudUrl = await uploadToCloudinary(uri);
       await updateProfile(cloudUrl);
       updateUser({ avatarUrl: cloudUrl });
+      toast.success('Profile picture updated');
     } catch (err) {
-      Alert.alert('Upload failed', err instanceof Error ? err.message : 'Could not upload image.');
+      toast.error(err instanceof Error ? err.message : 'Could not upload image');
     } finally {
       setIsUploading(false);
     }
@@ -286,25 +291,20 @@ export default function ProfileScreen() {
   }
 
   async function handleDeleteAccount() {
-    Alert.alert(
-      'Delete Account',
-      'This action will permanently delete your account and cannot be undone. Are you sure you want to proceed?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async() => {
-            try {
-              await deleteUserAccount();
-              await logout();
-            } catch (err) {
-              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete account');
-            }
-          },
-        },
-      ],
-    );
+    const confirmed = await confirm({
+      title: 'Delete Account',
+      message: 'This action will permanently delete your account and cannot be undone. Are you sure you want to proceed?',
+      confirmLabel: 'Delete',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await deleteUserAccount();
+      await logout();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete account');
+    }
   }
 
   return (

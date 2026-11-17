@@ -2,13 +2,16 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { deleteAdminUser, getAdminUsers, ROLES, updateAdminUser, type AdminUser, type Role } from '../../lib/api';
-import { confirmAction } from '../../lib/confirm';
 import { formatRole } from '../../lib/format';
 import { useAuth } from '../../providers/auth-provider';
+import { useConfirm } from '../../providers/confirm-provider';
+import { useToast } from '../../providers/toast-provider';
 import { AppPalette } from '../../constants/theme';
 
 export default function AdminUsersScreen() {
   const { user: currentUser } = useAuth();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,37 +42,42 @@ export default function AdminUsersScreen() {
     }, [loadUsers]),
   );
 
-  function handleChangeRole(target: AdminUser, nextRole: Role) {
+  async function handleChangeRole(target: AdminUser, nextRole: Role) {
     const label = `Make ${formatRole(nextRole).toLowerCase()}`;
-
-    confirmAction('Change Role', `${label}: ${target.email}?`, label, async () => {
-      setError('');
-
-      try {
-        const updated = await updateAdminUser(target.id, { role: nextRole });
-        setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update user');
-      }
+    const confirmed = await confirm({
+      title: 'Change Role',
+      message: `${label}: ${target.email}?`,
+      confirmLabel: label,
+      destructive: false,
     });
+
+    if (!confirmed) return;
+
+    try {
+      const updated = await updateAdminUser(target.id, { role: nextRole });
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      toast.success(`${target.email} is now ${formatRole(nextRole).toLowerCase()}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update user');
+    }
   }
 
-  function handleDelete(target: AdminUser) {
-    confirmAction(
-      'Delete User',
-      `Delete ${target.email} and all of their data? This cannot be undone.`,
-      'Delete',
-      async () => {
-        setError('');
+  async function handleDelete(target: AdminUser) {
+    const confirmed = await confirm({
+      title: 'Delete User',
+      message: `Delete ${target.email} and all of their data? This cannot be undone.`,
+      confirmLabel: 'Delete',
+    });
 
-        try {
-          await deleteAdminUser(target.id);
-          setUsers((prev) => prev.filter((u) => u.id !== target.id));
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to delete user');
-        }
-      },
-    );
+    if (!confirmed) return;
+
+    try {
+      await deleteAdminUser(target.id);
+      setUsers((prev) => prev.filter((u) => u.id !== target.id));
+      toast.success(`${target.email} deleted`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete user');
+    }
   }
 
   return (

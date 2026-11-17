@@ -8,7 +8,6 @@ import {
   Pressable,
   Modal,
   TextInput,
-  Alert,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import {
@@ -25,6 +24,8 @@ import {
 import { formatCategoryLabel } from '../../lib/format';
 import { useAuth } from '../../providers/auth-provider';
 import { useCurrency } from '../../providers/currency-provider';
+import { useConfirm } from '../../providers/confirm-provider';
+import { useToast } from '../../providers/toast-provider';
 import { AppPalette } from '../../constants/theme';
 
 function progressColor(spent: number, limit: number) {
@@ -48,6 +49,8 @@ function BudgetModal({
   onDeleted?: (id: number) => void;
 }) {
   const { currency, formatCurrency } = useCurrency();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [name, setName] = useState('');
   const [limit, setLimit] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<TransactionCategory[]>([]);
@@ -104,25 +107,25 @@ function BudgetModal({
     }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!budget) return;
 
-    Alert.alert('Delete Budget', `Delete "${budget.name}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteBudget(budget.id);
-            onDeleted?.(budget.id);
-            onClose();
-          } catch (err) {
-            Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete budget');
-          }
-        },
-      },
-    ]);
+    const confirmed = await confirm({
+      title: 'Delete Budget',
+      message: `Delete "${budget.name}"? This cannot be undone.`,
+      confirmLabel: 'Delete',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await deleteBudget(budget.id);
+      onDeleted?.(budget.id);
+      onClose();
+      toast.success('Budget deleted');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete budget');
+    }
   }
 
   return (

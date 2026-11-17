@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Modal, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import {
   createTransaction,
@@ -10,10 +10,12 @@ import {
 } from '../lib/api';
 import { formatCategoryLabel } from '../lib/format';
 import { useCurrency } from '../providers/currency-provider';
+import { useToast } from '../providers/toast-provider';
 import { AppPalette } from '../constants/theme';
 
 export default function AddTransactionScreen() {
   const { currency, toEur } = useCurrency();
+  const toast = useToast();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'expense' | 'income'>('expense');
@@ -30,13 +32,13 @@ export default function AddTransactionScreen() {
         setAccountId(data[0]?.id ?? null);
       })
       .catch(() => {
-        Alert.alert('Error', 'Failed to load accounts');
+        toast.error('Failed to load accounts');
       });
-  }, []);
+  }, [toast]);
 
   async function handleSubmit() {
     if (accountId === null) {
-      Alert.alert('Error', 'Create an account first in the Accounts tab');
+      toast.error('Create an account first in the Accounts tab');
       return;
     }
 
@@ -51,10 +53,10 @@ export default function AddTransactionScreen() {
         accountId,
       });
 
-      Alert.alert('Success', 'Transaction created successfully');
+      toast.success('Transaction created');
       router.replace('/(tabs)');
     } catch {
-      Alert.alert('Error', 'Failed to create transaction');
+      toast.error('Failed to create transaction');
     }
   }
 

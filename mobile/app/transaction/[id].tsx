@@ -20,9 +20,9 @@ import {
   type Note,
   type Transaction,
 } from '../../lib/api';
-import { confirmAction } from '../../lib/confirm';
 import { formatCategoryLabel } from '../../lib/format';
 import { useCurrency } from '../../providers/currency-provider';
+import { useConfirm } from '../../providers/confirm-provider';
 import { AppPalette } from '../../constants/theme';
 
 function NoteItem({
@@ -34,6 +34,7 @@ function NoteItem({
   onUpdated: (note: Note) => void;
   onDeleted: (id: number) => void;
 }) {
+  const confirm = useConfirm();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(note.content);
   const [error, setError] = useState('');
@@ -54,15 +55,17 @@ function NoteItem({
     }
   }
 
-  function handleDelete() {
-    confirmAction('Delete Note', 'Delete this note?', 'Delete', async () => {
-      try {
-        await deleteNote(note.id);
-        onDeleted(note.id);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to delete note');
-      }
-    });
+  async function handleDelete() {
+    const confirmed = await confirm({ title: 'Delete Note', message: 'Delete this note?', confirmLabel: 'Delete' });
+
+    if (!confirmed) return;
+
+    try {
+      await deleteNote(note.id);
+      onDeleted(note.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete note');
+    }
   }
 
   return (
