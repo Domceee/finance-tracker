@@ -11,6 +11,7 @@ import accountsRouter from './routes/accounts.js';
 import notesRouter from './routes/notes.js';
 import adminRouter from './routes/admin.js';
 import categoriesRouter from './routes/categories.js';
+import { ensureJsonBody, errorHandler, notFoundHandler } from './middleware/errors.js';
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(ensureJsonBody);
 
 // 10 attempts per 15 minutes per IP
 const authLimiter = rateLimit({
@@ -80,5 +82,8 @@ app.use('/accounts', accountsRouter);
 app.use('/notes', notesRouter);
 app.use('/admin', adminRouter);
 app.use('/categories', categoriesRouter);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;
