@@ -37,7 +37,7 @@ export default function ForgotPasswordScreen() {
         <BrandLogo />
         <Text style={styles.title}>Forgot Password</Text>
         <Text style={styles.subtitle}>
-          Enter your email and we'll send you a reset code.
+          Enter your email and we&apos;ll send you a reset code.
         </Text>
 
         <TextInput

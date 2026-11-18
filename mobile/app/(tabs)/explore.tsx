@@ -1,40 +1,23 @@
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
+import { useCallback } from 'react';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { getTransactions, Transaction } from '@/lib/api';
-import { formatCategoryLabel } from '@/lib/format';
-import { useCurrency } from '../../providers/currency-provider';
+import { getTransactionPage, PAGE_SIZE } from '../../lib/api';
+import { usePagedList } from '../../hooks/use-paged-list';
+import { FadeInItem } from '../../components/fade-in-item';
+import { LoadMoreButton } from '../../components/load-more-button';
+import { TransactionRow } from '../../components/transaction-row';
 import { AppPalette } from '../../constants/theme';
 import { FontFamily } from '../../constants/fonts';
 
 export default function TransactionsScreen() {
-  const { formatCurrency } = useCurrency();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const loadTransactions = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const data = await getTransactions();
-      setTransactions(data);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const list = usePagedList(getTransactionPage);
+  const { reload } = list;
 
   useFocusEffect(
     useCallback(() => {
-      loadTransactions();
-    }, [loadTransactions]),
+      reload();
+    }, [reload]),
   );
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={AppPalette.accent} />
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -45,26 +28,33 @@ export default function TransactionsScreen() {
         </Pressable>
       </View>
 
-      <FlatList
-        data={transactions}
-        keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => router.push({ pathname: '/transaction/[id]', params: { id: String(item.id) } })}>
-            <View>
-              <Text style={styles.itemTitle}>{item.title}</Text>
-              <Text style={styles.itemSubtitle}>
-                {formatCategoryLabel(item.category)} • {new Date(item.date).toLocaleDateString()}
-              </Text>
-            </View>
-
-            <Text style={item.type === 'income' ? styles.income : styles.expense}>
-              {item.type === 'income' ? '+' : '-'}{formatCurrency(item.amount)}
-            </Text>
-          </Pressable>
-        )}
-        ListEmptyComponent={<Text style={styles.emptyText}>No transactions yet.</Text>}
-      />
+      {list.isLoading && list.items.length === 0 ? (
+        <ActivityIndicator size="large" color={AppPalette.accent} />
+      ) : (
+        <FlatList
+          data={list.items}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item, index }) => (
+            <FadeInItem index={index % PAGE_SIZE}>
+              <TransactionRow transaction={item} />
+            </FadeInItem>
+          )}
+          ListEmptyComponent={<Text style={styles.emptyText}>No transactions yet.</Text>}
+          ListFooterComponent={
+            <>
+              {list.error ? <Text style={styles.errorText}>{list.error}</Text> : null}
+              <LoadMoreButton
+                shown={list.items.length}
+                total={list.total}
+                hasMore={list.hasMore}
+                isLoading={list.isLoadingMore}
+                onPress={list.loadMore}
+              />
+            </>
+          }
+        />
+      )}
     </View>
   );
 }
@@ -100,40 +90,14 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 24,
   },
-  card: {
-    backgroundColor: AppPalette.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#211C33',
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: AppPalette.text,
-  },
-  itemSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: AppPalette.accent,
-  },
-  income: {
-    color: AppPalette.success,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  expense: {
-    color: AppPalette.danger,
-    fontWeight: '700',
-    fontSize: 16,
-  },
   emptyText: {
     textAlign: 'center',
     color: AppPalette.accent,
     marginTop: 40,
+  },
+  errorText: {
+    textAlign: 'center',
+    color: AppPalette.danger,
+    marginBottom: 8,
   },
 });

@@ -5,6 +5,7 @@ import { getAccounts, type Account } from '../../lib/api';
 import { formatAccountType } from '../../lib/format';
 import { useCurrency } from '../../providers/currency-provider';
 import { AccountModal } from '../../components/account-modal';
+import { FadeInItem } from '../../components/fade-in-item';
 import { AppPalette } from '../../constants/theme';
 import { FontFamily } from '../../constants/fonts';
 
@@ -59,16 +60,18 @@ export default function AccountsScreen() {
           data={accounts}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <Pressable style={styles.card} onPress={() => router.push({ pathname: '/account/[id]', params: { id: String(item.id) } })}>
-              <View>
-                <Text style={styles.itemTitle}>{item.name}</Text>
-                <Text style={styles.itemSubtitle}>{formatAccountType(item.type)}</Text>
-              </View>
-              <Text style={item.balance < 0 ? styles.negative : styles.positive}>
-                {formatCurrency(item.balance)}
-              </Text>
-            </Pressable>
+          renderItem={({ item, index }) => (
+            <FadeInItem index={index}>
+              <Pressable style={styles.card} onPress={() => router.push({ pathname: '/account/[id]', params: { id: String(item.id) } })}>
+                <View>
+                  <Text style={styles.itemTitle}>{item.name}</Text>
+                  <Text style={styles.itemSubtitle}>{formatAccountType(item.type)}</Text>
+                </View>
+                <Text style={item.balance < 0 ? styles.negative : styles.positive}>
+                  {formatCurrency(item.balance)}
+                </Text>
+              </Pressable>
+            </FadeInItem>
           )}
           ListEmptyComponent={
             <Text style={styles.emptyText}>No accounts yet. Tap + New to add one.</Text>

@@ -1,44 +1,42 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import {
-  getAccount,
-  getAccountTransactions,
-  type Account,
-  type Transaction,
-} from '../../lib/api';
-import { formatAccountType, formatCategoryLabel } from '../../lib/format';
+import { getAccount, getAccountTransactionPage, PAGE_SIZE, type Account } from '../../lib/api';
+import { formatAccountType } from '../../lib/format';
 import { useCurrency } from '../../providers/currency-provider';
+import { usePagedList } from '../../hooks/use-paged-list';
 import { AccountModal } from '../../components/account-modal';
+import { FadeInItem } from '../../components/fade-in-item';
+import { LoadMoreButton } from '../../components/load-more-button';
+import { TransactionRow } from '../../components/transaction-row';
 import { AppPalette } from '../../constants/theme';
+import { FontFamily } from '../../constants/fonts';
 
 export default function AccountDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const accountId = Number(id);
   const { formatCurrency } = useCurrency();
   const [account, setAccount] = useState<Account | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const fetchPage = useCallback((page: number) => getAccountTransactionPage(accountId, page), [accountId]);
+  const transactions = usePagedList(fetchPage);
+  const { reload } = transactions;
 
   const loadData = useCallback(async () => {
     setError('');
 
     try {
       setIsLoading(true);
-      const [accountData, transactionData] = await Promise.all([
-        getAccount(accountId),
-        getAccountTransactions(accountId),
-      ]);
-      setAccount(accountData);
-      setTransactions(transactionData);
+      setAccount(await getAccount(accountId));
+      await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load account');
     } finally {
       setIsLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, reload]);
 
   useFocusEffect(
     useCallback(() => {
@@ -64,41 +62,41 @@ export default function AccountDetailScreen() {
       {isLoading && !account ? (
         <ActivityIndicator size="large" color={AppPalette.accent} />
       ) : account ? (
-        <>
-          <View style={styles.summaryCard}>
-            <Text style={styles.accountType}>{formatAccountType(account.type)}</Text>
-            <Text style={styles.accountName}>{account.name}</Text>
-            <Text style={account.balance < 0 ? styles.balanceNegative : styles.balance}>
-              {formatCurrency(account.balance)}
-            </Text>
-          </View>
-
-          <Text style={styles.sectionTitle}>Transactions in this account</Text>
-
-          <FlatList
-            data={transactions}
-            keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.card}
-                onPress={() => router.push({ pathname: '/transaction/[id]', params: { id: String(item.id) } })}>
-                <View style={styles.cardText}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  <Text style={styles.itemSubtitle}>
-                    {formatCategoryLabel(item.category)} • {new Date(item.date).toLocaleDateString()}
-                  </Text>
-                </View>
-                <Text style={item.type === 'income' ? styles.income : styles.expense}>
-                  {item.type === 'income' ? '+' : '-'}{formatCurrency(item.amount)}
+        <FlatList
+          data={transactions.items}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <>
+              <View style={styles.summaryCard}>
+                <Text style={styles.accountType}>{formatAccountType(account.type)}</Text>
+                <Text style={styles.accountName}>{account.name}</Text>
+                <Text style={account.balance < 0 ? styles.balanceNegative : styles.balance}>
+                  {formatCurrency(account.balance)}
                 </Text>
-              </Pressable>
-            )}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No transactions in this account yet.</Text>
-            }
-          />
-        </>
+              </View>
+              <Text style={styles.sectionTitle}>Transactions in this account</Text>
+            </>
+          }
+          renderItem={({ item, index }) => (
+            <FadeInItem index={index % PAGE_SIZE}>
+              <TransactionRow transaction={item} />
+            </FadeInItem>
+          )}
+          ListEmptyComponent={<Text style={styles.emptyText}>No transactions in this account yet.</Text>}
+          ListFooterComponent={
+            <>
+              {transactions.error ? <Text style={styles.errorText}>{transactions.error}</Text> : null}
+              <LoadMoreButton
+                shown={transactions.items.length}
+                total={transactions.total}
+                hasMore={transactions.hasMore}
+                isLoading={transactions.isLoadingMore}
+                onPress={transactions.loadMore}
+              />
+            </>
+          }
+        />
       ) : null}
 
       <AccountModal
@@ -158,7 +156,7 @@ const styles = StyleSheet.create({
   accountName: {
     color: AppPalette.text,
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginBottom: 12,
   },
   balance: {
@@ -174,46 +172,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: AppPalette.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: FontFamily.bold,
     marginBottom: 12,
   },
   listContent: {
     paddingBottom: 24,
-  },
-  card: {
-    backgroundColor: AppPalette.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#211C33',
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  cardText: {
-    flex: 1,
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: AppPalette.text,
-  },
-  itemSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: AppPalette.accent,
-  },
-  income: {
-    color: AppPalette.success,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  expense: {
-    color: AppPalette.danger,
-    fontWeight: '700',
-    fontSize: 16,
   },
   errorText: {
     color: AppPalette.danger,

@@ -25,6 +25,7 @@ import { formatCategoryLabel } from '../../lib/format';
 import { useAuth } from '../../providers/auth-provider';
 import { useCurrency } from '../../providers/currency-provider';
 import { useConfirm } from '../../providers/confirm-provider';
+import { FadeInItem } from '../../components/fade-in-item';
 import { useToast } from '../../providers/toast-provider';
 import { AppPalette } from '../../constants/theme';
 import { FontFamily } from '../../constants/fonts';
@@ -49,7 +50,7 @@ function BudgetModal({
   onSaved: (b: Budget) => void;
   onDeleted?: (id: number) => void;
 }) {
-  const { currency, formatCurrency } = useCurrency();
+  const { currency } = useCurrency();
   const confirm = useConfirm();
   const toast = useToast();
   const [name, setName] = useState('');
@@ -297,18 +298,20 @@ export default function DashboardScreen() {
         ) : transactions.length === 0 ? (
           <Text style={styles.emptyText}>No transactions yet.</Text>
         ) : (
-          transactions.slice(0, 5).map((transaction) => (
-            <View key={transaction.id} style={styles.listItem}>
-              <View>
-                <Text style={styles.listTitle}>{transaction.title}</Text>
-                <Text style={styles.listDate}>
-                  {new Date(transaction.date).toLocaleDateString()}
+          transactions.slice(0, 5).map((transaction, index) => (
+            <FadeInItem key={transaction.id} index={index}>
+              <View style={styles.listItem}>
+                <View>
+                  <Text style={styles.listTitle}>{transaction.title}</Text>
+                  <Text style={styles.listDate}>
+                    {new Date(transaction.date).toLocaleDateString()}
+                  </Text>
+                </View>
+                <Text style={transaction.type === 'income' ? styles.incomeText : styles.expenseText}>
+                  {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
                 </Text>
               </View>
-              <Text style={transaction.type === 'income' ? styles.incomeText : styles.expenseText}>
-                {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
-              </Text>
-            </View>
+            </FadeInItem>
           ))
         )}
       </View>
@@ -337,30 +340,31 @@ export default function DashboardScreen() {
             const isLast = index === budgets.length - 1;
 
             return (
-              <Pressable
-                key={budget.id}
-                style={[styles.budgetItem, !isLast && styles.budgetItemBorder]}
-                onPress={() => openEdit(budget)}>
-                <View style={styles.budgetHeader}>
-                  <Text style={styles.listTitle}>{budget.name}</Text>
-                  <Text style={[styles.budgetAmount, pct >= 1 && styles.budgetAmountOver]}>
-                    {formatCurrency(budget.spent)} / {formatCurrency(budget.limitAmount)}
+              <FadeInItem key={budget.id} index={index}>
+                <Pressable
+                  style={[styles.budgetItem, !isLast && styles.budgetItemBorder]}
+                  onPress={() => openEdit(budget)}>
+                  <View style={styles.budgetHeader}>
+                    <Text style={styles.listTitle}>{budget.name}</Text>
+                    <Text style={[styles.budgetAmount, pct >= 1 && styles.budgetAmountOver]}>
+                      {formatCurrency(budget.spent)} / {formatCurrency(budget.limitAmount)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.progressBarBackground}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${Math.min(pct * 100, 100)}%`, backgroundColor: fillColor },
+                      ]}
+                    />
+                  </View>
+
+                  <Text style={styles.budgetCategories}>
+                    {budget.categories.map(formatCategoryLabel).join(' · ')}
                   </Text>
-                </View>
-
-                <View style={styles.progressBarBackground}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      { width: `${Math.min(pct * 100, 100)}%`, backgroundColor: fillColor },
-                    ]}
-                  />
-                </View>
-
-                <Text style={styles.budgetCategories}>
-                  {budget.categories.map(formatCategoryLabel).join(' · ')}
-                </Text>
-              </Pressable>
+                </Pressable>
+              </FadeInItem>
             );
           })}
         </View>

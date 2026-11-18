@@ -8,6 +8,7 @@ if (!BASE_URL) {
 }
 
 const LIST_LIMIT = 100;
+export const PAGE_SIZE = 20;
 
 export type Paginated<T> = {
   data: T[];
@@ -239,6 +240,16 @@ export async function getTransactions(): Promise<Transaction[]> {
   return readList(response);
 }
 
+export async function getTransactionPage(page: number): Promise<Paginated<Transaction>> {
+  const response = await apiFetch(`/transactions?page=${page}&limit=${PAGE_SIZE}`);
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response, 'Failed to fetch transactions'));
+  }
+
+  return response.json();
+}
+
 export async function createTransaction(input: TransactionInput): Promise<Transaction> {
   const response = await apiFetch('/transactions', {
     method: 'POST',
@@ -341,14 +352,14 @@ export async function deleteAccount(id: number): Promise<void> {
   }
 }
 
-export async function getAccountTransactions(id: number): Promise<Transaction[]> {
-  const response = await apiFetch(`/accounts/${id}/transactions?limit=${LIST_LIMIT}`);
+export async function getAccountTransactionPage(id: number, page: number): Promise<Paginated<Transaction>> {
+  const response = await apiFetch(`/accounts/${id}/transactions?page=${page}&limit=${PAGE_SIZE}`);
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch account transactions'));
   }
 
-  return readList(response);
+  return response.json();
 }
 
 export async function getTransactionNotes(transactionId: number): Promise<Note[]> {
