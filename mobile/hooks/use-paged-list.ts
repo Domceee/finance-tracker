@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { Paginated } from '../lib/api';
 
 export function usePagedList<T extends { id: number }>(fetchPage: (page: number) => Promise<Paginated<T>>) {
@@ -9,6 +9,7 @@ export function usePagedList<T extends { id: number }>(fetchPage: (page: number)
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const requestId = useRef(0);
 
   const applyMeta = useCallback((result: Paginated<T>) => {
     setPage(result.meta.page);
@@ -17,28 +18,33 @@ export function usePagedList<T extends { id: number }>(fetchPage: (page: number)
   }, []);
 
   const reload = useCallback(async () => {
+    const id = ++requestId.current;
     setError('');
     setIsLoading(true);
 
     try {
       const result = await fetchPage(1);
+      if (id !== requestId.current) return;
       setItems(result.data);
       applyMeta(result);
     } catch (err) {
+      if (id !== requestId.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load list');
     } finally {
-      setIsLoading(false);
+      if (id === requestId.current) setIsLoading(false);
     }
   }, [fetchPage, applyMeta]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingMore || page >= totalPages) return;
 
+    const id = requestId.current;
     setError('');
     setIsLoadingMore(true);
 
     try {
       const result = await fetchPage(page + 1);
+      if (id !== requestId.current) return;
       setItems((prev) => [...prev, ...result.data.filter((item) => !prev.some((p) => p.id === item.id))]);
       applyMeta(result);
     } catch (err) {

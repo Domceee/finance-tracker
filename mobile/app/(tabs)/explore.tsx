@@ -1,16 +1,26 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { getTransactionPage, PAGE_SIZE } from '../../lib/api';
+import { EMPTY_TRANSACTION_FILTERS, hasActiveFilters, type TransactionFilters } from '../../lib/transaction-filters';
 import { usePagedList } from '../../hooks/use-paged-list';
+import { useDebouncedValue } from '../../hooks/use-debounced-value';
 import { FadeInItem } from '../../components/fade-in-item';
 import { LoadMoreButton } from '../../components/load-more-button';
+import { TransactionFilterBar } from '../../components/transaction-filter-bar';
 import { TransactionRow } from '../../components/transaction-row';
 import { AppPalette } from '../../constants/theme';
 import { FontFamily } from '../../constants/fonts';
 
 export default function TransactionsScreen() {
-  const list = usePagedList(getTransactionPage);
+  const [filters, setFilters] = useState<TransactionFilters>(EMPTY_TRANSACTION_FILTERS);
+  const search = useDebouncedValue(filters.search, 350);
+  const appliedFilters = useMemo(
+    () => ({ search, type: filters.type, category: filters.category }),
+    [search, filters.type, filters.category],
+  );
+  const fetchPage = useCallback((page: number) => getTransactionPage(page, appliedFilters), [appliedFilters]);
+  const list = usePagedList(fetchPage);
   const { reload } = list;
 
   useFocusEffect(
@@ -28,6 +38,8 @@ export default function TransactionsScreen() {
         </Pressable>
       </View>
 
+      <TransactionFilterBar filters={filters} onChange={setFilters} />
+
       {list.isLoading && list.items.length === 0 ? (
         <ActivityIndicator size="large" color={AppPalette.accent} />
       ) : (
@@ -40,7 +52,11 @@ export default function TransactionsScreen() {
               <TransactionRow transaction={item} />
             </FadeInItem>
           )}
-          ListEmptyComponent={<Text style={styles.emptyText}>No transactions yet.</Text>}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              {hasActiveFilters(appliedFilters) ? 'No transactions match these filters.' : 'No transactions yet.'}
+            </Text>
+          }
           ListFooterComponent={
             <>
               {list.error ? <Text style={styles.errorText}>{list.error}</Text> : null}

@@ -1,5 +1,6 @@
 import { apiFetch } from './api-client';
 import { saveTokens } from './auth-storage';
+import { EMPTY_TRANSACTION_FILTERS, transactionFilterParams, type TransactionFilters } from './transaction-filters';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -240,8 +241,14 @@ export async function getTransactions(): Promise<Transaction[]> {
   return readList(response);
 }
 
-export async function getTransactionPage(page: number): Promise<Paginated<Transaction>> {
-  const response = await apiFetch(`/transactions?page=${page}&limit=${PAGE_SIZE}`);
+export async function getTransactionPage(
+  page: number,
+  filters: TransactionFilters = EMPTY_TRANSACTION_FILTERS,
+): Promise<Paginated<Transaction>> {
+  const params = transactionFilterParams(filters);
+  params.set('page', String(page));
+  params.set('limit', String(PAGE_SIZE));
+  const response = await apiFetch(`/transactions?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error(await getErrorMessage(response, 'Failed to fetch transactions'));
